@@ -65,234 +65,62 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { OrderService } from "@/services/api/orders";
+import OrderDetailDialog from "./OrderDetailDialog";
 
-// Sample data interfaces
-interface OrderItem {
-  id: number;
-  productId: number;
-  productName: string;
-  productImage: string;
-  quantity: number;
-  price: number;
-  total: number;
+// Define types based on API response
+interface ApiOrder {
+  maDonHang: number;
+  maNguoiDung: number;
+  diaChiChiTiet: string;
+  tinhThanh: string;
+  quanHuyen: string;
+  phuongXa: string;
+  maPhuongThuc: number;
+  ghiChu?: string;
+  tongTien: string;
+  trangThai: string;
+  nguoiDung: {
+    maNguoiDung: number;
+    tenNguoiDung?: string | null;
+    hoTen?: string | null;
+    soDienThoai?: string | null;
+    email?: string | null;
+    trangThai?: boolean;
+  };
+  ngayDat: string;
+  phuongThucThanhToan: {
+    tenPhuongThuc: string;
+    moTa?: string;
+    daKichHoat?: boolean | null;
+    maPhuongThuc: number;
+  };
+  trangThaiThanhToan: string;
+  // ...add more fields if needed...
 }
 
-interface Customer {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-}
-
+// Normalized order for UI
 interface Order {
   id: string;
   customerId: number;
   date: string;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  status: string;
   total: number;
-  items: OrderItem[];
   shippingAddress: string;
   paymentMethod: string;
-  paymentStatus: "paid" | "unpaid";
-  shippingFee: number;
+  paymentStatus: string;
   notes?: string;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
-// Sample data
-const sampleCustomers: Customer[] = [
-  {
-    id: 1,
-    name: "Nguyễn Văn An",
-    email: "nguyenvanan@email.com",
-    phone: "0901234567",
-  },
-  {
-    id: 2,
-    name: "Trần Thị Bình",
-    email: "tranthibinh@email.com",
-    phone: "0912345678",
-  },
-  {
-    id: 3,
-    name: "Lê Văn Cường",
-    email: "levancuong@email.com",
-    phone: "0923456789",
-  },
-  {
-    id: 4,
-    name: "Phạm Thị Dung",
-    email: "phamthidung@email.com",
-    phone: "0934567890",
-  },
-  {
-    id: 5,
-    name: "Hoàng Văn Em",
-    email: "hoangvanem@email.com",
-    phone: "0945678901",
-  },
-];
-
-const sampleOrders: Order[] = [
-  {
-    id: "ORD-001",
-    customerId: 1,
-    date: "2024-01-15T10:30:00Z",
-    status: "delivered",
-    total: 1250000,
-    shippingFee: 30000,
-    paymentMethod: "cod",
-    paymentStatus: "paid",
-    shippingAddress: "123 Nguyễn Huệ, Quận 1, TP.HCM",
-    trackingNumber: "TT123456789",
-    estimatedDelivery: "2024-01-20",
-    items: [
-      {
-        id: 1,
-        productId: 1,
-        productName: "Kem dưỡng ẩm Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 450000,
-        total: 450000,
-      },
-      {
-        id: 2,
-        productId: 3,
-        productName: "Phấn nước Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 550000,
-        total: 550000,
-      },
-      {
-        id: 3,
-        productId: 4,
-        productName: "Son lì Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 250000,
-        total: 250000,
-      },
-    ],
-  },
-  {
-    id: "ORD-002",
-    customerId: 2,
-    date: "2024-01-14T14:20:00Z",
-    status: "shipped",
-    total: 850000,
-    shippingFee: 30000,
-    paymentMethod: "bank_transfer",
-    paymentStatus: "paid",
-    shippingAddress: "456 Lê Lợi, Quận 3, TP.HCM",
-    trackingNumber: "TT987654321",
-    estimatedDelivery: "2024-01-18",
-    items: [
-      {
-        id: 4,
-        productId: 2,
-        productName: "Serum Vitamin C",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 650000,
-        total: 650000,
-      },
-      {
-        id: 5,
-        productId: 8,
-        productName: "Mặt nạ dưỡng da",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 200000,
-        total: 200000,
-      },
-    ],
-  },
-  {
-    id: "ORD-003",
-    customerId: 3,
-    date: "2024-01-13T09:15:00Z",
-    status: "processing",
-    total: 550000,
-    shippingFee: 30000,
-    paymentMethod: "credit_card",
-    paymentStatus: "paid",
-    shippingAddress: "789 Trần Hưng Đạo, Quận 5, TP.HCM",
-    estimatedDelivery: "2024-01-17",
-    items: [
-      {
-        id: 6,
-        productId: 3,
-        productName: "Phấn nước Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 550000,
-        total: 550000,
-      },
-    ],
-  },
-  {
-    id: "ORD-004",
-    customerId: 4,
-    date: "2024-01-12T16:45:00Z",
-    status: "pending",
-    total: 750000,
-    shippingFee: 30000,
-    paymentMethod: "momo",
-    paymentStatus: "unpaid",
-    shippingAddress: "321 Võ Văn Tần, Quận 3, TP.HCM",
-    items: [
-      {
-        id: 7,
-        productId: 1,
-        productName: "Kem dưỡng ẩm Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 450000,
-        total: 450000,
-      },
-      {
-        id: 8,
-        productId: 4,
-        productName: "Son lì Thanh Tâm",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 1,
-        price: 300000,
-        total: 300000,
-      },
-    ],
-  },
-  {
-    id: "ORD-005",
-    customerId: 5,
-    date: "2024-01-11T11:30:00Z",
-    status: "cancelled",
-    total: 1200000,
-    shippingFee: 30000,
-    paymentMethod: "cod",
-    paymentStatus: "unpaid",
-    shippingAddress: "654 Nguyễn Thị Minh Khai, Quận 1, TP.HCM",
-    items: [
-      {
-        id: 9,
-        productId: 2,
-        productName: "Serum Vitamin C",
-        productImage: "/placeholder.svg?height=50&width=50",
-        quantity: 2,
-        price: 650000,
-        total: 1300000,
-      },
-    ],
-  },
-];
-
 export default function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>(sampleOrders);
-  const [customers] = useState<Customer[]>(sampleCustomers);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -303,41 +131,79 @@ export default function AdminOrders() {
   });
   const [isStatusUpdateLoading, setIsStatusUpdateLoading] = useState(false);
 
+  // Fetch orders from API
+  useEffect(() => {
+    async function fetchOrders() {
+      try {
+        const apiOrders: ApiOrder[] = await OrderService.getAllOrdersForAdmin();
+        // Normalize data
+        const normalizedOrders: Order[] = apiOrders.map((o) => ({
+          id: o.maDonHang.toString(),
+          customerId: o.maNguoiDung,
+          date: o.ngayDat,
+          status: o.trangThai,
+          total: parseFloat(o.tongTien),
+          shippingAddress: [
+            o.diaChiChiTiet,
+            o.phuongXa,
+            o.quanHuyen,
+            o.tinhThanh,
+          ]
+            .filter(Boolean)
+            .join(", "),
+          paymentMethod: o.phuongThucThanhToan?.tenPhuongThuc || "",
+          paymentStatus: o.trangThaiThanhToan,
+          notes: o.ghiChu,
+          customer: {
+            name:
+              o.nguoiDung?.hoTen || o.nguoiDung?.tenNguoiDung || "Không rõ tên",
+            email: o.nguoiDung?.email || "Không rõ email",
+            phone: o.nguoiDung?.soDienThoai || "Không rõ SĐT",
+          },
+        }));
+        setOrders(normalizedOrders);
+      } catch (e) {
+        setOrders([]);
+      }
+    }
+    fetchOrders();
+  }, []);
+
   // Stats for the dashboard cards
   const totalOrders = orders.length;
   const pendingOrders = orders.filter(
-    (order) => order.status === "pending"
+    (order) => order.status === "CHỜ XỬ LÝ"
   ).length;
   const processingOrders = orders.filter(
-    (order) => order.status === "processing"
+    (order) => order.status === "ĐANG XỬ LÝ"
   ).length;
   const shippedOrders = orders.filter(
-    (order) => order.status === "shipped"
+    (order) => order.status === "ĐANG GIAO"
   ).length;
   const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered"
+    (order) => order.status === "ĐÃ GIAO"
   ).length;
   const cancelledOrders = orders.filter(
-    (order) => order.status === "cancelled"
+    (order) => order.status === "ĐÃ HỦY"
   ).length;
 
   const totalRevenue = orders
-    .filter((order) => order.status !== "cancelled")
+    .filter((order) => order.status !== "ĐÃ HỦY")
     .reduce((sum, order) => sum + order.total, 0);
 
+  // Filtering, searching, sorting
   useEffect(() => {
     let filtered = [...orders];
 
-    // Apply status filter
+    // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
-    // Apply date filter
+    // Date filter
     if (dateFilter !== "all") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
       switch (dateFilter) {
         case "today":
           filtered = filtered.filter((order) => {
@@ -364,12 +230,12 @@ export default function AdminOrders() {
       }
     }
 
-    // Apply search filter
+    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(
         (order) =>
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          getUserName(order.customerId)
+          order.customer.name
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
           order.shippingAddress
@@ -378,7 +244,7 @@ export default function AdminOrders() {
       );
     }
 
-    // Apply sorting
+    // Sorting
     filtered.sort((a, b) => {
       if (sortConfig.key === "date") {
         return sortConfig.direction === "asc"
@@ -389,8 +255,8 @@ export default function AdminOrders() {
           ? a.total - b.total
           : b.total - a.total;
       } else if (sortConfig.key === "customer") {
-        const nameA = getUserName(a.customerId).toLowerCase();
-        const nameB = getUserName(b.customerId).toLowerCase();
+        const nameA = a.customer.name.toLowerCase();
+        const nameB = b.customer.name.toLowerCase();
         return sortConfig.direction === "asc"
           ? nameA.localeCompare(nameB)
           : nameB.localeCompare(nameA);
@@ -401,24 +267,26 @@ export default function AdminOrders() {
     setFilteredOrders(filtered);
   }, [searchTerm, orders, statusFilter, dateFilter, sortConfig]);
 
+  // Helper functions
   const getUserName = (customerId: number) => {
-    const customer = customers.find((customer) => customer.id === customerId);
-    return customer ? customer.name : "Khách hàng không xác định";
+    const order = orders.find((o) => o.customerId === customerId);
+    return order?.customer.name || "Không rõ tên";
   };
 
   const getUserEmail = (customerId: number) => {
-    const customer = customers.find((customer) => customer.id === customerId);
-    return customer ? customer.email : "Email không xác định";
+    const order = orders.find((o) => o.customerId === customerId);
+    return order?.customer.email || "Không rõ email";
   };
 
   const getUserPhone = (customerId: number) => {
-    const customer = customers.find((customer) => customer.id === customerId);
-    return customer ? customer.phone || "Chưa cung cấp" : "SĐT không xác định";
+    const order = orders.find((o) => o.customerId === customerId);
+    return order?.customer.phone || "Không rõ SĐT";
   };
 
-  const getStatusBadge = (status: Order["status"]) => {
+  // Map API status to badge
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
+      case "CHỜ XỬ LÝ":
         return (
           <Badge
             variant="outline"
@@ -427,7 +295,7 @@ export default function AdminOrders() {
             <Clock className="h-3 w-3" /> Chờ xử lý
           </Badge>
         );
-      case "processing":
+      case "ĐANG XỬ LÝ":
         return (
           <Badge
             variant="outline"
@@ -436,7 +304,7 @@ export default function AdminOrders() {
             <RefreshCw className="h-3 w-3" /> Đang xử lý
           </Badge>
         );
-      case "shipped":
+      case "ĐANG GIAO":
         return (
           <Badge
             variant="outline"
@@ -445,7 +313,7 @@ export default function AdminOrders() {
             <Truck className="h-3 w-3" /> Đang giao
           </Badge>
         );
-      case "delivered":
+      case "ĐÃ GIAO":
         return (
           <Badge
             variant="outline"
@@ -454,7 +322,7 @@ export default function AdminOrders() {
             <CheckCircle className="h-3 w-3" /> Đã giao
           </Badge>
         );
-      case "cancelled":
+      case "ĐÃ HỦY":
         return (
           <Badge
             variant="outline"
@@ -468,72 +336,68 @@ export default function AdminOrders() {
     }
   };
 
-  const getStatusIcon = (status: Order["status"]) => {
+  // Map API status to text
+  const getStatusText = (status: string) => {
     switch (status) {
-      case "pending":
-        return <Clock className="h-5 w-5 text-yellow-500" />;
-      case "processing":
-        return <RefreshCw className="h-5 w-5 text-blue-500" />;
-      case "shipped":
-        return <Truck className="h-5 w-5 text-purple-500" />;
-      case "delivered":
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case "cancelled":
-        return <XCircle className="h-5 w-5 text-red-500" />;
-      default:
-        return <AlertCircle className="h-5 w-5" />;
-    }
-  };
-
-  const getStatusText = (status: Order["status"]) => {
-    switch (status) {
-      case "pending":
+      case "CHỜ XỬ LÝ":
         return "Chờ xử lý";
-      case "processing":
+      case "ĐANG XỬ LÝ":
         return "Đang xử lý";
-      case "shipped":
+      case "ĐANG GIAO":
         return "Đang giao";
-      case "delivered":
+      case "ĐÃ GIAO":
         return "Đã giao";
-      case "cancelled":
+      case "ĐÃ HỦY":
         return "Đã hủy";
       default:
         return status;
     }
   };
 
+  // Map API payment method
   const getPaymentMethodText = (method: string) => {
     switch (method) {
-      case "cod":
+      case "COD":
         return "Thanh toán khi nhận hàng (COD)";
-      case "bank_transfer":
-        return "Chuyển khoản ngân hàng";
-      case "credit_card":
-        return "Thẻ tín dụng/ghi nợ";
-      case "momo":
-        return "Ví MoMo";
-      case "zalopay":
-        return "ZaloPay";
+      case "VNPAY":
+        return "Thanh toán trực tuyến qua cổng VNPAY";
       default:
         return method || "Chưa xác định";
     }
   };
 
-  const handleStatusChange = async (status: Order["status"]) => {
-    if (!currentOrder) return;
+  // Map API payment status
+  const getPaymentStatusText = (status: string) => {
+    switch (status) {
+      case "ĐÃ THANH TOÁN":
+        return (
+          <span className="text-green-600 flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" /> Đã thanh toán
+          </span>
+        );
+      case "CHƯA THANH TOÁN":
+        return (
+          <span className="text-yellow-600 flex items-center gap-1">
+            <Clock className="h-3 w-3" /> Chưa thanh toán
+          </span>
+        );
+      default:
+        return status;
+    }
+  };
 
+  // Handle status change (call API)
+  const handleStatusChange = async (status: string) => {
+    if (!currentOrder) return;
     setIsStatusUpdateLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const updatedOrder = { ...currentOrder, status };
-      const updatedOrders = orders.map((order) =>
-        order.id === currentOrder.id ? updatedOrder : order
+      await OrderService.updateOrderStatus(currentOrder.id, status);
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === currentOrder.id ? { ...order, status } : order
+        )
       );
-
-      setOrders(updatedOrders);
-      setCurrentOrder(updatedOrder);
+      setCurrentOrder((prev) => (prev ? { ...prev, status } : prev));
     } finally {
       setIsStatusUpdateLoading(false);
     }
@@ -607,7 +471,7 @@ export default function AdminOrders() {
           
           <div class="order-info">
             <h3>Thông tin đơn hàng</h3>
-            <p><strong>Trạng thái:</strong> ${getStatusText(
+            <p><strong>Trạng thái đơn hàng:</strong> ${getStatusText(
               currentOrder.status
             )}</p>
             <p><strong>Phương thức thanh toán:</strong> ${getPaymentMethodText(
@@ -786,660 +650,266 @@ export default function AdminOrders() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+      {/* Filters, Search, Pagination wrapper */}
+      <div>
+        {/* Search & Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Tìm kiếm đơn hàng..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 max-w-sm"
+              className="pl-9"
             />
+          </div>
+          <div className="flex gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                <SelectItem value="pending">Chờ xử lý</SelectItem>
+                <SelectItem value="processing">Đang xử lý</SelectItem>
+                <SelectItem value="shipped">Đang giao</SelectItem>
+                <SelectItem value="delivered">Đã giao</SelectItem>
+                <SelectItem value="cancelled">Đã hủy</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={dateFilter} onValueChange={setDateFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Lọc theo thời gian" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả thời gian</SelectItem>
+                <SelectItem value="today">Hôm nay</SelectItem>
+                <SelectItem value="week">7 ngày qua</SelectItem>
+                <SelectItem value="month">30 ngày qua</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon">
+              <Filter className="h-4 w-4" />
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Xuất dữ liệu</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                <SelectValue placeholder="Trạng thái" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả trạng thái</SelectItem>
-              <SelectItem value="pending">Chờ xử lý</SelectItem>
-              <SelectItem value="processing">Đang xử lý</SelectItem>
-              <SelectItem value="shipped">Đang giao</SelectItem>
-              <SelectItem value="delivered">Đã giao</SelectItem>
-              <SelectItem value="cancelled">Đã hủy</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Orders Table */}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[100px]">Mã đơn</TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("customer")}
+                >
+                  <div className="flex items-center">
+                    Khách hàng
+                    {getSortIcon("customer")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("date")}
+                >
+                  <div className="flex items-center">
+                    Ngày đặt
+                    {getSortIcon("date")}
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("total")}
+                >
+                  <div className="flex items-center">
+                    Tổng tiền
+                    {getSortIcon("total")}
+                  </div>
+                </TableHead>
+                <TableHead>Trạng thái đơn hàng</TableHead>
+                <TableHead>Trạng thái thanh toán</TableHead>
+                <TableHead className="text-right">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-10 text-muted-foreground"
+                  >
+                    Không tìm thấy đơn hàng nào
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredOrders.map((order) => (
+                  <TableRow key={order.id} className="group hover:bg-muted/50">
+                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{getUserName(order.customerId)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getUserEmail(order.customerId)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatDate(order.date)}</TableCell>
+                    <TableCell className="font-medium">
+                      {formatCurrency(order.total)}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell>
+                      {getPaymentStatusText(order.paymentStatus)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => viewOrderDetails(order)}
+                          className="opacity-70 group-hover:opacity-100"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="opacity-70 group-hover:opacity-100"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => viewOrderDetails(order)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" /> Xem chi tiết
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                viewOrderDetails(order);
+                                setTimeout(
+                                  () => handleStatusChange("processing"),
+                                  100
+                                );
+                              }}
+                              disabled={order.status !== "pending"}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-2 text-blue-500" />{" "}
+                              Xử lý đơn hàng
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                viewOrderDetails(order);
+                                setTimeout(
+                                  () => handleStatusChange("shipped"),
+                                  100
+                                );
+                              }}
+                              disabled={order.status !== "processing"}
+                            >
+                              <Truck className="h-4 w-4 mr-2 text-purple-500" />{" "}
+                              Giao hàng
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                viewOrderDetails(order);
+                                setTimeout(
+                                  () => handleStatusChange("delivered"),
+                                  100
+                                );
+                              }}
+                              disabled={order.status !== "shipped"}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2 text-green-500" />{" "}
+                              Xác nhận đã giao
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                viewOrderDetails(order);
+                                setTimeout(
+                                  () => handleStatusChange("cancelled"),
+                                  100
+                                );
+                              }}
+                              disabled={
+                                order.status === "delivered" ||
+                                order.status === "cancelled"
+                              }
+                              className="text-red-500 focus:text-red-500"
+                            >
+                              <XCircle className="h-4 w-4 mr-2" /> Hủy đơn hàng
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
-          <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-[160px]">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <SelectValue placeholder="Thời gian" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả thời gian</SelectItem>
-              <SelectItem value="today">Hôm nay</SelectItem>
-              <SelectItem value="week">7 ngày qua</SelectItem>
-              <SelectItem value="month">30 ngày qua</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Download className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Xuất dữ liệu</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-6">
+          <div className="text-sm text-gray-500">
+            Hiển thị {filteredOrders.length > 0 ? 1 : 0}-{filteredOrders.length}{" "}
+            của {filteredOrders.length} đơn hàng
+          </div>
+          <nav className="flex items-center gap-1">
+            <Button variant="outline" size="icon" disabled>
+              &lt;
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-pink-600 text-white"
+            >
+              1
+            </Button>
+            <Button variant="outline" size="icon">
+              &gt;
+            </Button>
+          </nav>
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Mã đơn</TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("customer")}
-              >
-                <div className="flex items-center">
-                  Khách hàng
-                  {getSortIcon("customer")}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("date")}
-              >
-                <div className="flex items-center">
-                  Ngày đặt
-                  {getSortIcon("date")}
-                </div>
-              </TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("total")}
-              >
-                <div className="flex items-center">
-                  Tổng tiền
-                  {getSortIcon("total")}
-                </div>
-              </TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-right">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredOrders.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-10 text-muted-foreground"
-                >
-                  Không tìm thấy đơn hàng nào
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredOrders.map((order) => (
-                <TableRow key={order.id} className="group hover:bg-muted/50">
-                  <TableCell className="font-medium">{order.id}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span>{getUserName(order.customerId)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {getUserEmail(order.customerId)}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(order.date)}</TableCell>
-                  <TableCell className="font-medium">
-                    {formatCurrency(order.total)}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(order.status)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => viewOrderDetails(order)}
-                        className="opacity-70 group-hover:opacity-100"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-70 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onClick={() => viewOrderDetails(order)}
-                          >
-                            <Eye className="h-4 w-4 mr-2" /> Xem chi tiết
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              viewOrderDetails(order);
-                              setTimeout(
-                                () => handleStatusChange("processing"),
-                                100
-                              );
-                            }}
-                            disabled={order.status !== "pending"}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2 text-blue-500" />{" "}
-                            Xử lý đơn hàng
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              viewOrderDetails(order);
-                              setTimeout(
-                                () => handleStatusChange("shipped"),
-                                100
-                              );
-                            }}
-                            disabled={order.status !== "processing"}
-                          >
-                            <Truck className="h-4 w-4 mr-2 text-purple-500" />{" "}
-                            Giao hàng
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              viewOrderDetails(order);
-                              setTimeout(
-                                () => handleStatusChange("delivered"),
-                                100
-                              );
-                            }}
-                            disabled={order.status !== "shipped"}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2 text-green-500" />{" "}
-                            Xác nhận đã giao
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              viewOrderDetails(order);
-                              setTimeout(
-                                () => handleStatusChange("cancelled"),
-                                100
-                              );
-                            }}
-                            disabled={
-                              order.status === "delivered" ||
-                              order.status === "cancelled"
-                            }
-                            className="text-red-500 focus:text-red-500"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" /> Hủy đơn hàng
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
       {/* View Order Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span>Chi tiết đơn hàng #{currentOrder?.id}</span>
-              {currentOrder && getStatusBadge(currentOrder.status)}
-            </DialogTitle>
-          </DialogHeader>
-          {currentOrder && (
-            <Tabs defaultValue="details">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="details">Thông tin đơn hàng</TabsTrigger>
-                <TabsTrigger value="products">Sản phẩm</TabsTrigger>
-                <TabsTrigger value="timeline">Lịch sử đơn hàng</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="details" className="space-y-4 pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                        <User className="h-5 w-5 text-muted-foreground" />
-                        Thông tin khách hàng
-                      </h3>
-                      <Card>
-                        <CardContent className="p-4 space-y-2">
-                          <div>
-                            <p className="font-medium">
-                              {getUserName(currentOrder.customerId)}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {getUserEmail(currentOrder.customerId)}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {getUserPhone(currentOrder.customerId)}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-muted-foreground" />
-                        Địa chỉ giao hàng
-                      </h3>
-                      <Card>
-                        <CardContent className="p-4">
-                          <p className="text-sm">
-                            {currentOrder.shippingAddress ||
-                              "Chưa cung cấp địa chỉ giao hàng"}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                        <CreditCard className="h-5 w-5 text-muted-foreground" />
-                        Thông tin thanh toán
-                      </h3>
-                      <Card>
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Phương thức thanh toán:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {getPaymentMethodText(currentOrder.paymentMethod)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Trạng thái thanh toán:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {currentOrder.paymentStatus === "paid" ? (
-                                <span className="text-green-600 flex items-center gap-1">
-                                  <CheckCircle className="h-3 w-3" /> Đã thanh
-                                  toán
-                                </span>
-                              ) : (
-                                <span className="text-yellow-600 flex items-center gap-1">
-                                  <Clock className="h-3 w-3" /> Chưa thanh toán
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
-                        Tổng quan đơn hàng
-                      </h3>
-                      <Card>
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Ngày đặt hàng:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {formatDate(currentOrder.date)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Tổng sản phẩm:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {currentOrder.items.reduce(
-                                (sum, item) => sum + item.quantity,
-                                0
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Tạm tính:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {formatCurrency(
-                                currentOrder.total - currentOrder.shippingFee
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">
-                              Phí vận chuyển:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {formatCurrency(currentOrder.shippingFee)}
-                            </span>
-                          </div>
-                          <Separator />
-                          <div className="flex justify-between font-medium">
-                            <span>Tổng cộng:</span>
-                            <span className="text-lg">
-                              {formatCurrency(currentOrder.total)}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="products" className="space-y-4 pt-4">
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Sản phẩm</TableHead>
-                        <TableHead className="text-right">Đơn giá</TableHead>
-                        <TableHead className="text-right">Số lượng</TableHead>
-                        <TableHead className="text-right">Thành tiền</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentOrder.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={item.productImage || "/placeholder.svg"}
-                                alt={item.productName}
-                                className="h-10 w-10 rounded-md object-cover"
-                              />
-                              <div>
-                                <p className="font-medium">
-                                  {item.productName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  SKU:{" "}
-                                  {item.productId.toString().padStart(8, "0")}
-                                </p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(item.price)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {item.quantity}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {formatCurrency(item.total)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                <div className="flex justify-end">
-                  <div className="w-full max-w-xs space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tạm tính:</span>
-                      <span>
-                        {formatCurrency(
-                          currentOrder.total - currentOrder.shippingFee
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Phí vận chuyển:
-                      </span>
-                      <span>{formatCurrency(currentOrder.shippingFee)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-medium">
-                      <span>Tổng cộng:</span>
-                      <span>{formatCurrency(currentOrder.total)}</span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="timeline" className="space-y-4 pt-4">
-                <div className="relative pl-6 border-l-2 border-muted space-y-6 py-2">
-                  {/* Order created */}
-                  <div className="relative">
-                    <div className="absolute -left-[25px] p-1 rounded-full bg-background border-2 border-muted">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="font-medium">Đơn hàng được tạo</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(currentOrder.date)}
-                      </p>
-                      <p className="text-sm">
-                        Khách hàng {getUserName(currentOrder.customerId)} đã đặt
-                        hàng.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Order status changes - dynamically generated based on order history */}
-                  {currentOrder.status !== "pending" && (
-                    <div className="relative">
-                      <div className="absolute -left-[25px] p-1 rounded-full bg-background border-2 border-blue-200">
-                        <RefreshCw className="h-4 w-4 text-blue-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">Đơn hàng đang được xử lý</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(
-                            new Date(
-                              new Date(currentOrder.date).getTime() +
-                                1000 * 60 * 60
-                            ).toISOString()
-                          )}
-                        </p>
-                        <p className="text-sm">
-                          Đơn hàng của bạn đang được chuẩn bị.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {(currentOrder.status === "shipped" ||
-                    currentOrder.status === "delivered") && (
-                    <div className="relative">
-                      <div className="absolute -left-[25px] p-1 rounded-full bg-background border-2 border-purple-200">
-                        <Truck className="h-4 w-4 text-purple-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">Đơn hàng đang được giao</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(
-                            new Date(
-                              new Date(currentOrder.date).getTime() +
-                                1000 * 60 * 60 * 24
-                            ).toISOString()
-                          )}
-                        </p>
-                        <p className="text-sm">
-                          Đơn hàng đã được giao cho đơn vị vận chuyển.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentOrder.status === "delivered" && (
-                    <div className="relative">
-                      <div className="absolute -left-[25px] p-1 rounded-full bg-background border-2 border-green-200">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">
-                          Đơn hàng đã giao thành công
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(
-                            new Date(
-                              new Date(currentOrder.date).getTime() +
-                                1000 * 60 * 60 * 24 * 3
-                            ).toISOString()
-                          )}
-                        </p>
-                        <p className="text-sm">
-                          Đơn hàng đã được giao thành công cho khách hàng.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentOrder.status === "cancelled" && (
-                    <div className="relative">
-                      <div className="absolute -left-[25px] p-1 rounded-full bg-background border-2 border-red-200">
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-medium">Đơn hàng đã bị hủy</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(
-                            new Date(
-                              new Date(currentOrder.date).getTime() +
-                                1000 * 60 * 60 * 2
-                            ).toISOString()
-                          )}
-                        </p>
-                        <p className="text-sm">Đơn hàng đã bị hủy.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between sm:space-x-2">
-            <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
-              <Button variant="outline" onClick={printOrder}>
-                <Printer className="mr-2 h-4 w-4" />
-                In đơn hàng
-              </Button>
-            </div>
-
-            {currentOrder && (
-              <div className="flex flex-wrap gap-2">
-                {currentOrder.status === "pending" && (
-                  <Button
-                    onClick={() => handleStatusChange("processing")}
-                    disabled={isStatusUpdateLoading}
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    {isStatusUpdateLoading ? (
-                      <div className="flex items-center">
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Đang cập nhật...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Xử lý đơn hàng
-                      </div>
-                    )}
-                  </Button>
-                )}
-
-                {currentOrder.status === "processing" && (
-                  <Button
-                    onClick={() => handleStatusChange("shipped")}
-                    disabled={isStatusUpdateLoading}
-                    className="bg-purple-500 hover:bg-purple-600"
-                  >
-                    {isStatusUpdateLoading ? (
-                      <div className="flex items-center">
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Đang cập nhật...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <Truck className="mr-2 h-4 w-4" />
-                        Giao hàng
-                      </div>
-                    )}
-                  </Button>
-                )}
-
-                {currentOrder.status === "shipped" && (
-                  <Button
-                    onClick={() => handleStatusChange("delivered")}
-                    disabled={isStatusUpdateLoading}
-                    className="bg-green-500 hover:bg-green-600"
-                  >
-                    {isStatusUpdateLoading ? (
-                      <div className="flex items-center">
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Đang cập nhật...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Xác nhận đã giao
-                      </div>
-                    )}
-                  </Button>
-                )}
-
-                {(currentOrder.status === "pending" ||
-                  currentOrder.status === "processing") && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleStatusChange("cancelled")}
-                    disabled={isStatusUpdateLoading}
-                  >
-                    {isStatusUpdateLoading ? (
-                      <div className="flex items-center">
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Đang cập nhật...
-                      </div>
-                    ) : (
-                      <div className="flex items-center">
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Hủy đơn hàng
-                      </div>
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <OrderDetailDialog
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+        order={currentOrder}
+        getStatusBadge={getStatusBadge}
+        getUserName={getUserName}
+        getUserEmail={getUserEmail}
+        getUserPhone={getUserPhone}
+        getPaymentMethodText={getPaymentMethodText}
+        getPaymentStatusText={getPaymentStatusText}
+        getStatusText={getStatusText}
+        handleStatusChange={handleStatusChange}
+        isStatusUpdateLoading={isStatusUpdateLoading}
+        printOrder={printOrder}
+      />
     </div>
   );
 }

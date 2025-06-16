@@ -243,7 +243,7 @@ export default function CartPage() {
                     Tiến hành thanh toán
                   </Button>
                 </Link>
-                <div className="text-xs text-center text-gray-500">
+                {/* <div className="text-xs text-center text-gray-500">
                   Chúng tôi chấp nhận các phương thức thanh toán sau
                 </div>
                 <div className="flex justify-center space-x-2">
@@ -251,7 +251,7 @@ export default function CartPage() {
                   <div className="w-10 h-6 bg-gray-200 rounded"></div>
                   <div className="w-10 h-6 bg-gray-200 rounded"></div>
                   <div className="w-10 h-6 bg-gray-200 rounded"></div>
-                </div>
+                </div> */}
               </div>
 
               <div className="border-t pt-4">

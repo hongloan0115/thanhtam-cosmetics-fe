@@ -111,10 +111,11 @@ export default function AccountPage() {
       errors.fullName = "Vui lòng nhập họ và tên";
     }
 
-    if (!personalInfo.phone.trim()) {
-      errors.phone = "Vui lòng nhập số điện thoại";
-    } else if (!/^[0-9]{10,11}$/.test(personalInfo.phone.replace(/\s/g, ""))) {
-      errors.phone = "Số điện thoại không hợp lệ";
+    // Không bắt buộc nhập số điện thoại, chỉ kiểm tra nếu có nhập
+    if (personalInfo.phone.trim()) {
+      if (!/^[0-9]{10,11}$/.test(personalInfo.phone.replace(/\s/g, ""))) {
+        errors.phone = "Số điện thoại không hợp lệ";
+      }
     }
 
     setPersonalInfoErrors(errors);
@@ -130,8 +131,8 @@ export default function AccountPage() {
 
     if (!passwordInfo.newPassword) {
       errors.newPassword = "Vui lòng nhập mật khẩu mới";
-    } else if (passwordInfo.newPassword.length < 6) {
-      errors.newPassword = "Mật khẩu mới phải có ít nhất 6 ký tự";
+    } else if (passwordInfo.newPassword.length < 8) {
+      errors.newPassword = "Mật khẩu mới phải có ít nhất 8 ký tự";
     }
 
     if (!passwordInfo.confirmPassword) {
@@ -183,11 +184,10 @@ export default function AccountPage() {
     setIsSubmittingPassword(true);
 
     try {
-      // Gọi API đổi mật khẩu thực tế
+      // Chỉ gửi currentPassword và newPassword về backend
       await AuthService.changePassword(
         passwordInfo.currentPassword,
-        passwordInfo.newPassword,
-        passwordInfo.confirmPassword
+        passwordInfo.newPassword
       );
 
       setPasswordSuccess(true);

@@ -1,7 +1,7 @@
 import axiosInstance from "@/utils/axios-instance";
 
 export interface Image {
-  maAnh: number;
+  maHinhAnh: number; // sửa lại từ maAnh -> maHinhAnh
   duongDanAnh: string;
   maAnhClound: string;
   moTa: string;
@@ -15,8 +15,10 @@ export interface Product {
   moTa?: string;
   giaBan: number;
   soLuongTonKho: number;
+  giamGia?: number;
   trangThai: boolean;
   maDanhMuc: number;
+  maThuongHieu?: number;
   ngayTao: string;
   ngayCapNhat: string;
   hinhAnh: Image[];
@@ -39,8 +41,10 @@ export const ProductService = {
     moTa?: string;
     giaBan: number;
     soLuongTonKho: number;
+    giamGia?: number;
     trangThai?: boolean;
     maDanhMuc: number;
+    maThuongHieu?: number;
     images?: File[]; // Nhiều ảnh
   }): Promise<Product> {
     const formData = new FormData();
@@ -48,8 +52,12 @@ export const ProductService = {
     if (product.moTa !== undefined) formData.append("moTa", product.moTa);
     formData.append("giaBan", String(product.giaBan));
     formData.append("soLuongTonKho", String(product.soLuongTonKho));
-    formData.append("trangThai", String(product.trangThai ?? true));
+    if (product.giamGia !== undefined)
+      formData.append("giamGia", String(product.giamGia));
+    // Không append trangThai khi tạo mới
     formData.append("maDanhMuc", String(product.maDanhMuc));
+    if (product.maThuongHieu !== undefined)
+      formData.append("maThuongHieu", String(product.maThuongHieu));
     if (product.images && product.images.length > 0) {
       product.images.forEach((img) => {
         formData.append("images", img);
@@ -72,10 +80,12 @@ export const ProductService = {
       moTa?: string;
       giaBan?: number;
       soLuongTonKho?: number;
-      trangThai?: boolean;
+      giamGia?: number;
+      trangThai?: string; // sửa lại kiểu cho đúng là string
       maDanhMuc?: number | null;
-      keep_image_ids?: string; // Sửa: truyền chuỗi id, ví dụ "1,2,3"
-      images?: File[]; // Ảnh mới muốn upload
+      maThuongHieu?: number | null;
+      keep_image_ids?: string;
+      images?: File[];
     }
   ): Promise<Product> {
     const formData = new FormData();
@@ -86,10 +96,14 @@ export const ProductService = {
       formData.append("giaBan", String(data.giaBan));
     if (data.soLuongTonKho !== undefined)
       formData.append("soLuongTonKho", String(data.soLuongTonKho));
+    if (data.giamGia !== undefined)
+      formData.append("giamGia", String(data.giamGia));
     if (data.trangThai !== undefined)
-      formData.append("trangThai", String(data.trangThai));
+      formData.append("trangThai", data.trangThai); // Đảm bảo là chuỗi tiếng Việt
     if (data.maDanhMuc !== undefined && data.maDanhMuc !== null)
       formData.append("maDanhMuc", String(data.maDanhMuc));
+    if (data.maThuongHieu !== undefined && data.maThuongHieu !== null)
+      formData.append("maThuongHieu", String(data.maThuongHieu));
     if (data.keep_image_ids) {
       formData.append("keep_image_ids", data.keep_image_ids);
     }
@@ -109,5 +123,27 @@ export const ProductService = {
 
   async delete(id: number | string): Promise<void> {
     await axiosInstance.delete(`/products/${id}`);
+  },
+
+  // Tìm kiếm sản phẩm theo tên
+  async search(q: string): Promise<Product[]> {
+    const response = await axiosInstance.get("/products/search", {
+      params: { q },
+    });
+    return response.data;
+  },
+
+  // Lọc sản phẩm theo các điều kiện
+  async filter(params: {
+    maDanhMuc?: number;
+    giaMin?: number;
+    giaMax?: number;
+    trangThai?: boolean;
+    thuongHieu?: string;
+  }): Promise<Product[]> {
+    const response = await axiosInstance.get("/products/filter", {
+      params,
+    });
+    return response.data;
   },
 };

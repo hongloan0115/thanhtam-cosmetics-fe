@@ -25,12 +25,47 @@ import {
   CategoryService,
   Category as ApiCategory,
 } from "@/services/api/category";
+import { BrandService } from "@/services/api/brands"; // Thêm dòng này
 import { useAuth } from "@/components/auth-provider";
-import type { Product, ProductForm } from "./types";
 import ProductFormDialog from "../../../components/admin/products/ProductFormDialog";
 import ProductTable from "../../../components/admin/products/ProductTable";
 import ProductGrid from "../../../components/admin/products/ProductGrid";
 import ProductDetail from "../../../components/admin/products/ProductDetail";
+
+export interface Product {
+  maSanPham: number;
+  tenSanPham: string;
+  moTa?: string;
+  giaBan: number;
+  soLuongTonKho: number;
+  giamGia?: number;
+  trangThai: boolean;
+  maDanhMuc: number;
+  maThuongHieu?: number;
+  ngayTao: string;
+  ngayCapNhat: string;
+  hinhAnh: {
+    maHinhAnh: number; // sửa lại từ maAnh -> maHinhAnh
+    duongDanAnh: string;
+    maAnhClound: string;
+    moTa: string;
+    laAnhChinh: number;
+    maSanPham: number;
+  }[];
+}
+
+export interface ProductForm {
+  maSanPham?: number;
+  tenSanPham: string;
+  moTa?: string;
+  giaBan: number;
+  soLuongTonKho: number;
+  trangThai?: boolean;
+  maDanhMuc: number | null;
+  maThuongHieu: number | null;
+  images: (File | string)[];
+  featured: boolean;
+}
 
 export default function AdminProducts() {
   // Sample data - in a real app, this would come from a database
@@ -40,6 +75,7 @@ export default function AdminProducts() {
   const [categories, setCategories] = useState<{ id: number; name: string }[]>(
     []
   );
+  const [brands, setBrands] = useState<{ id: number; name: string }[]>([]);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<number | null>(null);
@@ -64,6 +100,7 @@ export default function AdminProducts() {
     soLuongTonKho: 0,
     trangThai: true,
     maDanhMuc: null,
+    maThuongHieu: null,
     images: [], // sẽ là File[] hoặc (File | string)[]
     featured: false,
   });
@@ -83,27 +120,54 @@ export default function AdminProducts() {
       );
     });
 
+    // Lấy thương hiệu từ API
+    BrandService.getAll().then((data) => {
+      setBrands(
+        data.map((brand) => ({
+          id: brand.maThuongHieu,
+          name: brand.tenThuongHieu,
+        }))
+      );
+    });
+
     // Lấy sản phẩm
     ProductService.getAll().then((data: Product[]) => {
       const mapped = data.map((item) => ({
         ...item,
-        images: item.hinhAnh && item.hinhAnh.length > 0 ? item.hinhAnh : [],
+        images:
+          item.hinhAnh && item.hinhAnh.length > 0
+            ? item.hinhAnh.map((img: any) => ({
+                ...img,
+                duongDan: img.duongDan || img.duongDanAnh,
+              }))
+            : [],
         featured: false,
-        status: item.trangThai
-          ? item.soLuongTonKho > 10
-            ? "Còn hàng"
-            : item.soLuongTonKho > 0
-            ? "Sắp hết hàng"
-            : "Hết hàng"
-          : "Hết hàng",
+        status: item.trangThai, // trạng thái là string từ backend
         name: item.tenSanPham,
         price: item.giaBan,
         stock: item.soLuongTonKho,
         category: item.maDanhMuc,
+        brand: item.maThuongHieu,
         description: item.moTa,
         id: item.maSanPham,
-        createdAt: new Date(item.ngayTao).toLocaleDateString("vi-VN"),
-        updatedAt: new Date(item.ngayCapNhat).toLocaleDateString("vi-VN"),
+        createdAt: item.ngayTao
+          ? new Date(item.ngayTao).toLocaleString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+        updatedAt: item.ngayCapNhat
+          ? new Date(item.ngayCapNhat).toLocaleString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
       }));
       setProducts(mapped);
     });
@@ -119,6 +183,7 @@ export default function AdminProducts() {
       const matchesCategory =
         categoryFilter === "all" ||
         String(product.category) === String(categoryFilter);
+      // So sánh trạng thái đúng enum trả về từ API
       const matchesStatus =
         statusFilter === "all" || product.status === statusFilter;
 
@@ -152,24 +217,41 @@ export default function AdminProducts() {
         ...item,
         images: item.hinhAnh && item.hinhAnh.length > 0 ? item.hinhAnh : [],
         featured: false,
-        status: item.trangThai
-          ? item.soLuongTonKho > 10
-            ? "Còn hàng"
-            : item.soLuongTonKho > 0
-            ? "Sắp hết hàng"
-            : "Hết hàng"
-          : "Hết hàng",
+        status: item.trangThai, // trạng thái là string từ backend
         name: item.tenSanPham,
         price: item.giaBan,
         stock: item.soLuongTonKho,
         category: item.maDanhMuc,
+        brand: item.maThuongHieu,
         description: item.moTa,
         id: item.maSanPham,
-        createdAt: new Date(item.ngayTao).toLocaleDateString("vi-VN"),
-        updatedAt: new Date(item.ngayCapNhat).toLocaleDateString("vi-VN"),
+        createdAt: item.ngayTao
+          ? new Date(item.ngayTao).toLocaleString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+        updatedAt: item.ngayCapNhat
+          ? new Date(item.ngayCapNhat).toLocaleString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
       }))
     );
   };
+
+  // Hàm chuyển đổi trạng thái sang enum backend tiếng Việt
+  function getTrangThaiEnum(trangThai: string, soLuongTonKho: number): string {
+    if (trangThai === "NGỪNG BÁN" || soLuongTonKho === 0) return "NGỪNG BÁN";
+    return "ĐANG BÁN";
+  }
 
   // Thêm sản phẩm sử dụng API, đảm bảo đúng quyền và dữ liệu backend yêu cầu
   const saveProduct = async () => {
@@ -178,13 +260,14 @@ export default function AdminProducts() {
       return;
     }
 
+    // Không đưa trangThai vào payload khi tạo mới
     const payload = {
       tenSanPham: productForm.tenSanPham,
       moTa: productForm.moTa,
       giaBan: productForm.giaBan,
       soLuongTonKho: productForm.soLuongTonKho,
-      trangThai: productForm.trangThai,
       maDanhMuc: productForm.maDanhMuc,
+      maThuongHieu: productForm.maThuongHieu,
     };
 
     try {
@@ -204,8 +287,15 @@ export default function AdminProducts() {
           (img: any) => img instanceof File
         ) as File[];
 
+        // Chuyển trạng thái về enum backend tiếng Việt
+        const trangThaiEnum = getTrangThaiEnum(
+          productForm.trangThai,
+          productForm.soLuongTonKho
+        );
+
         await ProductService.update(productForm.maSanPham, {
           ...payload,
+          trangThai: trangThaiEnum, // gửi đúng kiểu enum tiếng Việt
           keep_image_ids,
           images: newImages,
         });
@@ -279,10 +369,17 @@ export default function AdminProducts() {
       moTa: detail.moTa || "",
       giaBan: detail.giaBan,
       soLuongTonKho: detail.soLuongTonKho,
-      trangThai: detail.trangThai && detail.soLuongTonKho > 0,
+      trangThai: detail.trangThai, // giữ nguyên chuỗi "ĐANG BÁN"/"NGỪNG BÁN"
       maDanhMuc: detail.maDanhMuc ? Number(detail.maDanhMuc) : null,
-      images: detail.hinhAnh && detail.hinhAnh.length > 0 ? detail.hinhAnh : [],
-      featured: false, // hoặc lấy từ detail nếu có
+      maThuongHieu: detail.maThuongHieu ? Number(detail.maThuongHieu) : null,
+      images:
+        detail.hinhAnh && detail.hinhAnh.length > 0
+          ? detail.hinhAnh.map((img: any) => ({
+              ...img,
+              duongDanAnh: img.duongDanAnh,
+            }))
+          : [],
+      featured: false,
     });
     setEditProductOpen(true);
   };
@@ -298,22 +395,31 @@ export default function AdminProducts() {
           ? detail.hinhAnh.map((img) => img.duongDanAnh)
           : ["/placeholder.svg?height=200&width=200"],
       featured: false,
-      status: detail.trangThai
-        ? detail.soLuongTonKho > 10
-          ? "Còn hàng"
-          : detail.soLuongTonKho > 0
-          ? "Sắp hết hàng"
-          : "Hết hàng"
-        : "Hết hàng",
+      status: detail.trangThai, // trạng thái là string từ backend
       name: detail.tenSanPham,
       price: detail.giaBan,
       stock: detail.soLuongTonKho,
-      // Sửa: category là id danh mục (number)
       category: detail.maDanhMuc,
       description: detail.moTa,
       id: detail.maSanPham,
-      createdAt: new Date(detail.ngayTao).toLocaleDateString("vi-VN"),
-      updatedAt: new Date(detail.ngayCapNhat).toLocaleDateString("vi-VN"),
+      createdAt: detail.ngayTao
+        ? new Date(detail.ngayTao).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "",
+      updatedAt: detail.ngayCapNhat
+        ? new Date(detail.ngayCapNhat).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "",
     };
     setCurrentProduct(mapped);
     setViewProductOpen(true);
@@ -341,6 +447,14 @@ export default function AdminProducts() {
     setProductForm({
       ...productForm,
       maDanhMuc: value ? Number(value) : null,
+    });
+  };
+
+  // Khi chọn thương hiệu ở form thêm/sửa, cập nhật mã thương hiệu (maThuongHieu)
+  const handleBrandChange = (value: string) => {
+    setProductForm({
+      ...productForm,
+      maThuongHieu: value ? Number(value) : null,
     });
   };
 
@@ -398,6 +512,13 @@ export default function AdminProducts() {
   const exportProducts = () => {
     // In a real app, this would generate a CSV or Excel file
     alert("Xuất danh sách sản phẩm thành công!");
+  };
+
+  // Hàm lấy tên thương hiệu từ maThuongHieu
+  const getBrandNameById = (maThuongHieu?: number | null) => {
+    if (!maThuongHieu) return "";
+    const brand = brands.find((b) => b.id === maThuongHieu);
+    return brand ? brand.name : "";
   };
 
   console.log("productForm:", productForm);
@@ -477,9 +598,8 @@ export default function AdminProducts() {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">Tất cả trạng thái</option>
-                <option value="Còn hàng">Còn hàng</option>
-                <option value="Sắp hết hàng">Sắp hết hàng</option>
-                <option value="Hết hàng">Hết hàng</option>
+                <option value="ĐANG BÁN">Đang bán</option>
+                <option value="NGỪNG BÁN">Ngừng bán</option>
               </select>
 
               <Button
@@ -518,6 +638,8 @@ export default function AdminProducts() {
             <ProductTable
               products={filteredProducts}
               categories={categories}
+              brands={brands}
+              getBrandNameById={getBrandNameById} // Truyền hàm này nếu cần
               selectedProducts={selectedProducts}
               toggleSelectAll={toggleSelectAll}
               toggleSelectProduct={toggleSelectProduct}
@@ -533,6 +655,8 @@ export default function AdminProducts() {
             <ProductGrid
               products={filteredProducts}
               categories={categories}
+              brands={brands}
+              getBrandNameById={getBrandNameById} // Truyền hàm này nếu cần
               selectedProducts={selectedProducts}
               toggleSelectProduct={toggleSelectProduct}
               handleViewProduct={handleViewProduct}
@@ -714,10 +838,12 @@ export default function AdminProducts() {
         open={addProductOpen}
         onOpenChange={setAddProductOpen}
         categories={categories}
+        brands={brands}
         productForm={productForm}
         setProductForm={setProductForm}
         onSave={saveProduct}
         mode="add"
+        onBrandChange={handleBrandChange}
       />
 
       {/* Edit Product Dialog */}
@@ -725,10 +851,12 @@ export default function AdminProducts() {
         open={editProductOpen}
         onOpenChange={setEditProductOpen}
         categories={categories}
+        brands={brands}
         productForm={productForm}
         setProductForm={setProductForm}
         onSave={saveProduct}
         mode="edit"
+        onBrandChange={handleBrandChange}
       />
 
       {/* View Product Dialog */}
@@ -741,6 +869,8 @@ export default function AdminProducts() {
             <ProductDetail
               product={currentProduct}
               categories={categories}
+              brands={brands}
+              getBrandNameById={getBrandNameById} // Truyền hàm này nếu cần
               onEdit={handleEditProduct}
               onDelete={handleDeleteClick}
               onClose={() => setViewProductOpen(false)}

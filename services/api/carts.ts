@@ -11,7 +11,7 @@ export interface CartItem {
 
 export const CartService = {
   async getItems(): Promise<CartItem[]> {
-    const response = await axiosInstance.get("/cart/items");
+    const response = await axiosInstance.get("/cart/");
     return response.data;
   },
 
@@ -19,7 +19,7 @@ export const CartService = {
     maSanPham: number;
     soLuong?: number;
   }): Promise<CartItem> {
-    const response = await axiosInstance.post("/cart/items", data);
+    const response = await axiosInstance.post("/cart/add", data);
     return response.data;
   },
 

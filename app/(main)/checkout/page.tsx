@@ -29,6 +29,7 @@ import {
   OrderCreate,
   OrderDetailCreate,
 } from "@/services/api/orders";
+import { AddressService, Province, District, Ward } from "@/services/api/address";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -90,6 +91,11 @@ export default function CheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
 
+  // State cho địa chỉ
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+
   useEffect(() => {
     PaymentMethodService.getAll()
       .then((data) => {
@@ -104,6 +110,46 @@ export default function CheckoutPage() {
       })
       .finally(() => setLoadingPaymentMethods(false));
   }, []);
+
+  // Load tỉnh/thành phố khi mount
+  useEffect(() => {
+    AddressService.getProvinces().then(setProvinces);
+  }, []);
+
+  // Khi chọn tỉnh/thành phố, load quận/huyện
+  useEffect(() => {
+    if (formData.city) {
+      const selectedProvince = provinces.find(
+        (p) => p.code.toString() === formData.city
+      );
+      if (selectedProvince) {
+        AddressService.getDistrictsByProvince(selectedProvince.code).then(
+          setDistricts
+        );
+      }
+    } else {
+      setDistricts([]);
+      setWards([]);
+    }
+    setFormData((prev) => ({ ...prev, district: "", ward: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.city]);
+
+  // Khi chọn quận/huyện, load phường/xã
+  useEffect(() => {
+    if (formData.district) {
+      const selectedDistrict = districts.find(
+        (d) => d.code.toString() === formData.district
+      );
+      if (selectedDistrict) {
+        AddressService.getWardsByDistrict(selectedDistrict.code).then(setWards);
+      }
+    } else {
+      setWards([]);
+    }
+    setFormData((prev) => ({ ...prev, ward: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.district]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -307,16 +353,32 @@ export default function CheckoutPage() {
                     <Label htmlFor="city">
                       Tỉnh/Thành phố <span className="text-red-500">*</span>
                     </Label>
-                    <Input
+                    <select
                       id="city"
                       name="city"
                       value={formData.city}
-                      onChange={handleInputChange}
-                      className={formErrors.city ? "border-red-500" : ""}
-                    />
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          city: e.target.value,
+                          district: "",
+                          ward: "",
+                        }))
+                      }
+                      className={`w-full border rounded px-3 py-2 ${
+                        formErrors.city ? "border-red-500" : ""
+                      }`}
+                    >
+                      <option value="">Chọn tỉnh/thành phố</option>
+                      {provinces.map((p) => (
+                        <option key={p.code} value={p.code}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
                     {formErrors.city && (
                       <p className="text-red-500 text-xs">
-                        Vui lòng nhập tỉnh/thành phố
+                        Vui lòng chọn tỉnh/thành phố
                       </p>
                     )}
                   </div>
@@ -324,16 +386,32 @@ export default function CheckoutPage() {
                     <Label htmlFor="district">
                       Quận/Huyện <span className="text-red-500">*</span>
                     </Label>
-                    <Input
+                    <select
                       id="district"
                       name="district"
                       value={formData.district}
-                      onChange={handleInputChange}
-                      className={formErrors.district ? "border-red-500" : ""}
-                    />
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          district: e.target.value,
+                          ward: "",
+                        }))
+                      }
+                      className={`w-full border rounded px-3 py-2 ${
+                        formErrors.district ? "border-red-500" : ""
+                      }`}
+                      disabled={!formData.city}
+                    >
+                      <option value="">Chọn quận/huyện</option>
+                      {districts.map((d) => (
+                        <option key={d.code} value={d.code}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
                     {formErrors.district && (
                       <p className="text-red-500 text-xs">
-                        Vui lòng nhập quận/huyện
+                        Vui lòng chọn quận/huyện
                       </p>
                     )}
                   </div>
@@ -341,16 +419,31 @@ export default function CheckoutPage() {
                     <Label htmlFor="ward">
                       Phường/Xã <span className="text-red-500">*</span>
                     </Label>
-                    <Input
+                    <select
                       id="ward"
                       name="ward"
                       value={formData.ward}
-                      onChange={handleInputChange}
-                      className={formErrors.ward ? "border-red-500" : ""}
-                    />
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          ward: e.target.value,
+                        }))
+                      }
+                      className={`w-full border rounded px-3 py-2 ${
+                        formErrors.ward ? "border-red-500" : ""
+                      }`}
+                      disabled={!formData.district}
+                    >
+                      <option value="">Chọn phường/xã</option>
+                      {wards.map((w) => (
+                        <option key={w.code} value={w.code}>
+                          {w.name}
+                        </option>
+                      ))}
+                    </select>
                     {formErrors.ward && (
                       <p className="text-red-500 text-xs">
-                        Vui lòng nhập phường/xã
+                        Vui lòng chọn phường/xã
                       </p>
                     )}
                   </div>

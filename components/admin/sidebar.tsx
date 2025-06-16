@@ -11,6 +11,7 @@ import {
   Package,
   ShoppingCart,
   Users,
+  BadgePercent,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -22,6 +23,21 @@ const adminRoutes = [
     icon: LayoutDashboard,
   },
   {
+    title: "Người dùng",
+    href: "/admin/users",
+    icon: Users,
+  },
+  {
+    title: "Danh mục",
+    href: "/admin/categories",
+    icon: Box,
+  },
+  {
+    title: "Thương hiệu",
+    href: "/admin/brands",
+    icon: BadgePercent,
+  },
+  {
     title: "Sản phẩm",
     href: "/admin/products",
     icon: Package,
@@ -30,16 +46,6 @@ const adminRoutes = [
     title: "Đơn hàng",
     href: "/admin/orders",
     icon: ShoppingCart,
-  },
-  {
-    title: "Danh mục",
-    href: "/admin/categories",
-    icon: Box,
-  },
-  {
-    title: "Người dùng",
-    href: "/admin/users",
-    icon: Users,
   },
   {
     title: "Cài đặt",

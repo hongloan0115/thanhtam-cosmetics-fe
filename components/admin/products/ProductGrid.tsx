@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 const ProductGrid = ({
   products,
   categories,
+  brands, // Thêm dòng này
   selectedProducts,
   toggleSelectProduct,
   handleViewProduct,
@@ -33,7 +34,12 @@ const ProductGrid = ({
             <div className="h-48 overflow-hidden bg-gray-100">
               <img
                 src={
-                  product.images[0] || "/placeholder.svg?height=200&width=200"
+                  product.images?.[0]?.duongDan ||
+                  product.images?.[0]?.duongDanAnh ||
+                  product.hinhAnh?.[0]?.duongDan ||
+                  product.hinhAnh?.[0]?.duongDanAnh ||
+                  product.images?.[0] ||
+                  "/placeholder.svg?height=200&width=200"
                 }
                 alt={product.tenSanPham}
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
@@ -47,6 +53,11 @@ const ProductGrid = ({
           </div>
           <CardContent className="p-4">
             <h3 className="font-semibold truncate">{product.tenSanPham}</h3>
+            {/* Hiển thị thương hiệu dưới tên sản phẩm */}
+            <div className="text-xs text-muted-foreground mb-1">
+              {brands?.find((brand: any) => brand.id === product.brand)?.name ||
+                ""}
+            </div>
             <div className="flex justify-between items-center mt-2">
               <span className="text-sm text-muted-foreground">
                 {categories.find((cat: any) => cat.id === product.category)
@@ -59,11 +70,17 @@ const ProductGrid = ({
             <div className="flex justify-between items-center mt-2">
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  product.status === "Còn hàng"
+                  product.status === "ĐANG BÁN"
                     ? "bg-green-100 text-green-800"
-                    : product.status === "Sắp hết hàng"
+                    : product.status === "SẮP HẾT"
                     ? "bg-yellow-100 text-yellow-800"
-                    : "bg-red-100 text-red-800"
+                    : product.status === "HẾT HÀNG"
+                    ? "bg-red-100 text-red-800"
+                    : product.status === "SẮP VỀ"
+                    ? "bg-blue-100 text-blue-800"
+                    : product.status === "NGỪNG BÁN"
+                    ? "bg-gray-200 text-gray-600"
+                    : "bg-gray-100 text-gray-800"
                 }`}
               >
                 {product.status}

@@ -10,26 +10,113 @@ import ProductCard from "@/components/product-card";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { ProductService, Product } from "@/services/api/product";
+import { CategoryService, Category } from "@/services/api/category";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // State cho filter và search
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sort, setSort] = useState("popular");
+
+  // Thêm state cho categories từ API
+  const [categories, setCategories] = useState<Category[]>([]);
+
   useEffect(() => {
-    ProductService.getAll()
-      .then((data) => setProducts(data))
-      .finally(() => setLoading(false));
+    fetchProducts();
+    fetchCategories();
   }, []);
 
-  const categories = [
-    { id: "all", name: "Tất cả" },
-    { id: "skincare", name: "Chăm sóc da" },
-    { id: "makeup", name: "Trang điểm" },
-    { id: "haircare", name: "Chăm sóc tóc" },
-    { id: "bodycare", name: "Chăm sóc cơ thể" },
-    { id: "fragrance", name: "Nước hoa" },
-  ];
+  // Hàm fetch sản phẩm mặc định
+  const fetchProducts = async () => {
+    setLoading(true);
+    const data = await ProductService.getAll();
+    setProducts(data);
+    setLoading(false);
+  };
 
+  // Lấy danh sách danh mục từ API
+  const fetchCategories = async () => {
+    try {
+      const data = await CategoryService.getAll();
+      // Thêm "Tất cả" vào đầu danh sách
+      setCategories([
+        { maDanhMuc: 0, tenDanhMuc: "Tất cả" } as Category,
+        ...data,
+      ]);
+    } catch (e) {
+      setCategories([{ maDanhMuc: 0, tenDanhMuc: "Tất cả" } as Category]);
+    }
+  };
+
+  // Hàm tìm kiếm sản phẩm
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      fetchProducts();
+      return;
+    }
+    setLoading(true);
+    const data = await ProductService.search(searchTerm.trim());
+    setProducts(data);
+    setLoading(false);
+  };
+
+  // Hàm lọc sản phẩm
+  const handleFilter = async () => {
+    setLoading(true);
+    // Ưu tiên lọc theo danh mục đầu tiên nếu có
+    const maDanhMuc =
+      selectedCategories.length > 0 &&
+      selectedCategories[0] !== "all" &&
+      selectedCategories[0] !== "0"
+        ? selectedCategories[0]
+        : undefined;
+    const thuongHieu =
+      selectedBrands.length > 0 ? selectedBrands[0] : undefined;
+    const [giaMin, giaMax] = priceRange;
+    const params: any = {};
+    if (maDanhMuc) params.maDanhMuc = maDanhMuc;
+    if (thuongHieu) params.thuongHieu = thuongHieu;
+    if (giaMin !== 0) params.giaMin = giaMin;
+    if (giaMax !== 1000000) params.giaMax = giaMax;
+    const data = await ProductService.filter(params);
+    setProducts(data);
+    setLoading(false);
+  };
+
+  // Xử lý chọn danh mục
+  const handleCategoryChange = (id: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(id)
+        ? prev.filter((c) => c !== id)
+        : [...prev.filter((c) => c !== "all"), id]
+    );
+  };
+
+  // Xử lý chọn thương hiệu
+  const handleBrandChange = (id: string) => {
+    setSelectedBrands((prev) =>
+      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]
+    );
+  };
+
+  // Xử lý slider giá
+  const handlePriceChange = (values: number[]) => {
+    setPriceRange([values[0], values[1]]);
+  };
+
+  // Xử lý enter trong ô tìm kiếm
+  const handleSearchInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  // brands vẫn hardcode
   const brands = [
     { id: "thanhtam", name: "Thanh Tâm" },
     { id: "loreal", name: "L'Oréal" },
@@ -49,13 +136,21 @@ export default function ProductsPage() {
             <h3 className="font-medium mb-4">Danh mục</h3>
             <div className="space-y-2">
               {categories.map((category) => (
-                <div key={category.id} className="flex items-center">
-                  <Checkbox id={`category-${category.id}`} />
+                <div key={category.maDanhMuc} className="flex items-center">
+                  <Checkbox
+                    id={`category-${category.maDanhMuc}`}
+                    checked={selectedCategories.includes(
+                      String(category.maDanhMuc)
+                    )}
+                    onCheckedChange={() =>
+                      handleCategoryChange(String(category.maDanhMuc))
+                    }
+                  />
                   <label
-                    htmlFor={`category-${category.id}`}
+                    htmlFor={`category-${category.maDanhMuc}`}
                     className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    {category.name}
+                    {category.tenDanhMuc}
                   </label>
                 </div>
               ))}
@@ -67,7 +162,11 @@ export default function ProductsPage() {
             <div className="space-y-2">
               {brands.map((brand) => (
                 <div key={brand.id} className="flex items-center">
-                  <Checkbox id={`brand-${brand.id}`} />
+                  <Checkbox
+                    id={`brand-${brand.id}`}
+                    checked={selectedBrands.includes(brand.id)}
+                    onCheckedChange={() => handleBrandChange(brand.id)}
+                  />
                   <label
                     htmlFor={`brand-${brand.id}`}
                     className="ml-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -83,19 +182,23 @@ export default function ProductsPage() {
             <h3 className="font-medium mb-4">Giá</h3>
             <div className="space-y-4">
               <Slider
-                defaultValue={[0, 1000000]}
+                value={priceRange}
                 min={0}
                 max={1000000}
                 step={50000}
+                onValueChange={handlePriceChange}
               />
               <div className="flex items-center justify-between">
-                <span className="text-sm">{formatCurrency(0)}</span>
-                <span className="text-sm">{formatCurrency(1000000)}</span>
+                <span className="text-sm">{formatCurrency(priceRange[0])}</span>
+                <span className="text-sm">{formatCurrency(priceRange[1])}</span>
               </div>
             </div>
           </div>
 
-          <Button className="w-full bg-pink-600 hover:bg-pink-700">
+          <Button
+            className="w-full bg-pink-600 hover:bg-pink-700"
+            onClick={handleFilter}
+          >
             Áp dụng
           </Button>
         </div>
@@ -106,18 +209,38 @@ export default function ProductsPage() {
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Tìm kiếm sản phẩm..." className="pl-9" />
+              <Input
+                placeholder="Tìm kiếm sản phẩm..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearchInputKeyDown}
+              />
+              {/* Nút tìm kiếm */}
+              <Button
+                size="icon"
+                className="absolute right-2 top-1/2 -translate-y-1/2"
+                variant="ghost"
+                onClick={handleSearch}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
             </div>
 
             <Button
               variant="outline"
               className="sm:w-auto md:hidden flex items-center gap-2"
+              // Có thể mở modal lọc cho mobile ở đây nếu muốn
             >
               <SlidersHorizontal className="h-4 w-4" />
               Lọc
             </Button>
 
-            <select className="border rounded-md px-3 py-2">
+            <select
+              className="border rounded-md px-3 py-2"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+            >
               <option value="popular">Phổ biến nhất</option>
               <option value="newest">Mới nhất</option>
               <option value="price-asc">Giá: Thấp đến cao</option>
@@ -127,11 +250,18 @@ export default function ProductsPage() {
 
           {/* Mobile category tabs */}
           <div className="md:hidden mb-6">
-            <Tabs defaultValue="all">
+            <Tabs
+              defaultValue="0"
+              value={selectedCategories[0] || "0"}
+              onValueChange={(val) => setSelectedCategories([val])}
+            >
               <TabsList className="w-full overflow-x-auto">
                 {categories.map((category) => (
-                  <TabsTrigger key={category.id} value={category.id}>
-                    {category.name}
+                  <TabsTrigger
+                    key={category.maDanhMuc}
+                    value={String(category.maDanhMuc)}
+                  >
+                    {category.tenDanhMuc}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -160,7 +290,12 @@ export default function ProductsPage() {
                     // Các trường không có trong API, giữ nguyên logic cũ hoặc random
                     rating: 4.5 + (idx % 5) * 0.1,
                     reviewCount: 50 + ((idx * 13) % 100),
-                    category: categories[idx % categories.length].name,
+                    category:
+                      categories.find(
+                        (c) => String(c.maDanhMuc) === String(product.maDanhMuc)
+                      )?.tenDanhMuc ??
+                      categories[idx % categories.length]?.tenDanhMuc ??
+                      "",
                     isNew: idx % 3 === 0,
                   }}
                 />

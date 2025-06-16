@@ -26,20 +26,26 @@ export interface OrderCheckoutResponse {
 }
 
 export const OrderService = {
-  // Lấy tất cả đơn hàng (admin)
-  async getAllOrdersAdmin(): Promise<any[]> {
-    const response = await axiosInstance.get("/orders/admin/all");
+  // Lấy chi tiết đơn hàng theo mã đơn hàng (cho admin hoặc user)
+  async getOrderById(orderId: number | string): Promise<any> {
+    const response = await axiosInstance.get(`/orders/admin/order/${orderId}`);
     return response.data;
   },
 
-  // Admin cập nhật trạng thái đơn hàng
-  async adminUpdateOrderStatus(
-    maDonHang: number,
-    update_in: { trangThai?: string; ghiChu?: string }
+  // Lấy tất cả đơn hàng (cho admin)
+  async getAllOrdersForAdmin(): Promise<any[]> {
+    const response = await axiosInstance.get(`/orders/admin/all`);
+    return response.data;
+  },
+
+  // Cập nhật trạng thái đơn hàng (cho admin)
+  async updateOrderStatus(
+    orderId: number | string,
+    trangThai: string
   ): Promise<any> {
-    const response = await axiosInstance.put(
-      `/orders/admin/update-status/${maDonHang}`,
-      update_in
+    const response = await axiosInstance.patch(
+      `/orders/admin/order/update-status/${orderId}`,
+      { trangThai }
     );
     return response.data;
   },
@@ -54,11 +60,6 @@ export const OrderService = {
       order_details: orderDetails,
     });
     // Trả về response.data, có thể chứa payment_url
-    return response.data;
-  },
-
-  async getOrderById(id: number | string): Promise<any> {
-    const response = await axiosInstance.get(`/orders/${id}`);
     return response.data;
   },
 

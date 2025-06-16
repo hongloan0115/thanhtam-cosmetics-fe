@@ -28,6 +28,7 @@ interface User {
   }[];
   roles: string[];
   gioHang?: any[]; // Có thể định nghĩa rõ hơn nếu cần
+  anhDaiDien?: string | null; // Thêm trường ảnh đại diện nếu có
 }
 
 interface AuthContextType {

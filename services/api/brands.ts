@@ -1,83 +1,79 @@
 import axiosInstance from "@/utils/axios-instance";
 
-export interface Category {
-  maDanhMuc: number;
-  tenDanhMuc: string;
+export interface Brand {
+  maThuongHieu: number;
+  tenThuongHieu: string;
   moTa: string;
   trangThai: boolean;
   ngayTao: string;
   ngayCapNhat: string;
   daXoa: boolean;
-  soLuongSanPham: number; // Bắt buộc
+  soLuongSanPham: number;
 }
 
-export const CategoryService = {
-  async getAll(): Promise<Category[]> {
-    const response = await axiosInstance.get("/categories");
+export const BrandService = {
+  async getAll(): Promise<Brand[]> {
+    const response = await axiosInstance.get("/brands");
     return response.data;
   },
 
-  async getById(id: number): Promise<Category> {
-    const response = await axiosInstance.get(`/categories/${id}`);
+  async getById(id: number): Promise<Brand> {
+    const response = await axiosInstance.get(`/brands/${id}`);
     return response.data;
   },
 
   async create(data: {
-    tenDanhMuc: string;
+    tenThuongHieu: string;
     moTa?: string;
     trangThai?: boolean;
     daXoa?: boolean;
-  }): Promise<Category> {
-    // Đảm bảo đúng kiểu dữ liệu
+  }): Promise<Brand> {
     const payload = {
-      tenDanhMuc: data.tenDanhMuc,
+      tenThuongHieu: data.tenThuongHieu,
       moTa: data.moTa ?? "",
       trangThai: typeof data.trangThai === "boolean" ? data.trangThai : true,
       daXoa: typeof data.daXoa === "boolean" ? data.daXoa : false,
     };
-    const response = await axiosInstance.post("/categories", payload);
+    const response = await axiosInstance.post("/brands", payload);
     return response.data;
   },
 
   async update(
     id: number,
     data: {
-      tenDanhMuc?: string;
+      tenThuongHieu?: string;
       moTa?: string;
       trangThai?: boolean;
       daXoa?: boolean;
     }
-  ): Promise<Category> {
-    const response = await axiosInstance.put(`/categories/${id}`, data);
+  ): Promise<Brand> {
+    const response = await axiosInstance.put(`/brands/${id}`, data);
     return response.data;
   },
 
   async delete(id: number): Promise<void> {
-    await axiosInstance.delete(`/categories/${id}`);
+    await axiosInstance.delete(`/brands/${id}`);
   },
 
   async getAllWithPaging(
     page = 1,
     limit = 10
-  ): Promise<{ data: Category[]; total: number }> {
-    const response = await axiosInstance.get("/categories", {
+  ): Promise<{ data: Brand[]; total: number }> {
+    const response = await axiosInstance.get("/brands", {
       params: { page, limit },
     });
-    // Chuẩn hóa dữ liệu phân trang
+    // Đảm bảo trả về đúng cấu trúc dữ liệu
     if (Array.isArray(response.data)) {
-      // Trường hợp trả về mảng trực tiếp
       return {
         data: response.data,
         total: response.data.length,
       };
     } else if (response.data && Array.isArray(response.data.data)) {
-      // Trường hợp trả về { data: [...], total: ... }
       return {
         data: response.data.data,
         total: response.data.total ?? response.data.data.length ?? 0,
       };
     } else {
-      // Trường hợp không xác định
       return {
         data: [],
         total: 0,

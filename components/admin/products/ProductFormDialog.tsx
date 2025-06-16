@@ -30,28 +30,33 @@ type ProductForm = {
   soLuongTonKho: number;
   trangThai: boolean;
   maDanhMuc: number | null;
-  images: (File | string)[];
+  maThuongHieu?: number | null; // Thêm trường này
+  images: (File | string)[]; // Có thể là File hoặc object hoặc string
   featured: boolean;
 };
 
-interface Props {
+interface ProductFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  categories: Category[];
-  productForm: ProductForm;
-  setProductForm: (form: ProductForm) => void;
+  categories: { id: number; name: string }[];
+  brands: { id: number; name: string }[]; // Thêm prop brands
+  productForm: any;
+  setProductForm: (form: any) => void;
   onSave: () => void;
   mode: "add" | "edit";
+  onBrandChange: (value: string) => void; // Thêm prop onBrandChange
 }
 
-const ProductFormDialog: React.FC<Props> = ({
+const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
   open,
   onOpenChange,
   categories,
+  brands,
   productForm,
   setProductForm,
   onSave,
   mode,
+  onBrandChange,
 }) => {
   // ...handlers giống như trong page.tsx...
   const handleFormChange = (
@@ -104,6 +109,18 @@ const ProductFormDialog: React.FC<Props> = ({
     }
   };
 
+  const handleBrandChange = (value: string) => {
+    onBrandChange(value);
+  };
+
+  // Thêm handler cho trạng thái
+  const handleStatusChange = (value: string) => {
+    setProductForm({
+      ...productForm,
+      trangThai: value, // value sẽ là "ĐANG BÁN" hoặc "NGỪNG BÁN"
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
@@ -118,6 +135,7 @@ const ProductFormDialog: React.FC<Props> = ({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* Giữ lại phần tên sản phẩm */}
           <div className="space-y-2">
             <Label htmlFor={mode === "add" ? "name" : "edit-name"}>
               Tên sản phẩm
@@ -130,53 +148,87 @@ const ProductFormDialog: React.FC<Props> = ({
               placeholder="Nhập tên sản phẩm"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={mode === "add" ? "category" : "edit-category"}>
-              Danh mục
-            </Label>
-            <Select
-              value={
-                productForm.maDanhMuc ? productForm.maDanhMuc.toString() : ""
-              }
-              onValueChange={handleCategoryChange}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn danh mục" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id.toString()}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Danh mục và Thương hiệu trên cùng một hàng */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor={mode === "add" ? "category" : "edit-category"}>
+                Danh mục
+              </Label>
+              <Select
+                value={
+                  productForm.maDanhMuc ? productForm.maDanhMuc.toString() : ""
+                }
+                onValueChange={handleCategoryChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem
+                      key={category.id}
+                      value={category.id.toString()}
+                    >
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={mode === "add" ? "brand" : "edit-brand"}>
+                Thương hiệu
+              </Label>
+              <Select
+                value={
+                  productForm.maThuongHieu !== null &&
+                  productForm.maThuongHieu !== undefined
+                    ? productForm.maThuongHieu.toString()
+                    : ""
+                }
+                onValueChange={handleBrandChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn thương hiệu" />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id.toString()}>
+                      {brand.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={mode === "add" ? "price" : "edit-price"}>
-              Giá (VNĐ)
-            </Label>
-            <Input
-              id={mode === "add" ? "price" : "edit-price"}
-              name="giaBan"
-              type="number"
-              value={productForm.giaBan}
-              onChange={handleFormChange}
-              placeholder="Nhập giá sản phẩm"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor={mode === "add" ? "stock" : "edit-stock"}>
-              Số lượng tồn kho
-            </Label>
-            <Input
-              id={mode === "add" ? "stock" : "edit-stock"}
-              name="soLuongTonKho"
-              type="number"
-              value={productForm.soLuongTonKho}
-              onChange={handleFormChange}
-              placeholder="Nhập số lượng tồn kho"
-            />
+          {/* Giá và Số lượng tồn kho trên cùng một hàng */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor={mode === "add" ? "price" : "edit-price"}>
+                Giá (VNĐ)
+              </Label>
+              <Input
+                id={mode === "add" ? "price" : "edit-price"}
+                name="giaBan"
+                type="number"
+                value={productForm.giaBan}
+                onChange={handleFormChange}
+                placeholder="Nhập giá sản phẩm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={mode === "add" ? "stock" : "edit-stock"}>
+                Số lượng tồn kho
+              </Label>
+              <Input
+                id={mode === "add" ? "stock" : "edit-stock"}
+                name="soLuongTonKho"
+                type="number"
+                value={productForm.soLuongTonKho}
+                onChange={handleFormChange}
+                placeholder="Nhập số lượng tồn kho"
+              />
+            </div>
           </div>
           <div className="space-y-2">
             <Label
@@ -206,16 +258,36 @@ const ProductFormDialog: React.FC<Props> = ({
               Đánh dấu là sản phẩm nổi bật
             </label>
           </div>
+          {/* Thêm trạng thái khi chỉnh sửa */}
+          {mode === "edit" && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Trạng thái</Label>
+              <select
+                id="edit-status"
+                name="trangThai"
+                className="border rounded-md px-3 py-2 w-full"
+                value={productForm.trangThai || ""}
+                onChange={(e) => handleStatusChange(e.target.value)}
+              >
+                <option value="ĐANG BÁN">Đang bán</option>
+                <option value="NGỪNG BÁN">Ngừng bán</option>
+              </select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Hình ảnh sản phẩm</Label>
             <div className="grid grid-cols-3 gap-2">
-              {productForm.images.map((image: any, index) => (
+              {productForm.images.map((image: any, index: number) => (
                 <div key={index} className="relative group">
                   <img
                     src={
                       image?.maHinhAnh
-                        ? image?.duongDanAnh
-                        : URL.createObjectURL(image)
+                        ? image?.duongDan // Sử dụng đúng trường trả về từ API
+                        : image instanceof File
+                        ? URL.createObjectURL(image)
+                        : typeof image === "string"
+                        ? image
+                        : "/placeholder.svg"
                     }
                     alt={`Product ${index + 1}`}
                     className="h-20 w-full object-cover rounded border"
@@ -237,15 +309,31 @@ const ProductFormDialog: React.FC<Props> = ({
                 <Upload className="h-5 w-5" />
               </button>
             </div>
-          </div>
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-            <UploadCloud className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-1">
-              Kéo thả hình ảnh vào đây
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              hoặc nhấp để chọn file
-            </p>
+            {/* Bỏ phần kéo thả hình ảnh vào đây */}
+            {/* 
+            <div className="border-2 border-dashed rounded-lg p-6 text-center">
+              <UploadCloud className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-1">
+                Kéo thả hình ảnh vào đây
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                hoặc nhấp để chọn file
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileChange}
+                className="hidden"
+                id="product-image-upload"
+              />
+              <label htmlFor="product-image-upload">
+                <Button variant="outline" size="sm" asChild>
+                  <span>Chọn file</span>
+                </Button>
+              </label>
+            </div>
+            */}
+            {/* Thêm input file ẩn để chọn ảnh khi bấm nút thêm ảnh */}
             <input
               type="file"
               accept="image/*"
@@ -253,11 +341,6 @@ const ProductFormDialog: React.FC<Props> = ({
               className="hidden"
               id="product-image-upload"
             />
-            <label htmlFor="product-image-upload">
-              <Button variant="outline" size="sm" asChild>
-                <span>Chọn file</span>
-              </Button>
-            </label>
           </div>
         </div>
         <DialogFooter>

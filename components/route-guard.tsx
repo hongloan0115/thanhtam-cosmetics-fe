@@ -22,6 +22,7 @@ const publicRoutes = [
   "/about",
   "/contact",
   "/promotions",
+  "/auth/login-success-by-google",
 ];
 
 export default function RouteGuard({
@@ -42,24 +43,25 @@ export default function RouteGuard({
   };
 
   useEffect(() => {
-    console.log("RouteGuard user: ", user);
     // Đợi cho đến khi trạng thái xác thực được xác định
-    if (!isLoading) {
-      // Nếu không phải route công khai và người dùng chưa đăng nhập
-      if (!isPublicRoute() && !isAuthenticated) {
-        router.push("/auth/login");
-      }
+    if (isLoading) return; // Đợi xác thực xong mới xử lý chuyển hướng
 
-      // Nếu yêu cầu quyền admin nhưng người dùng không phải admin
-      if (
-        requireAdmin &&
-        (!user || !user.roles || !user.roles.includes("ADMIN"))
-      ) {
-        router.push("/");
-      }
-
-      // Nếu route là /account thì chỉ cần đăng nhập, không cần kiểm tra vai trò
+    // Nếu không phải route công khai và người dùng chưa đăng nhập
+    if (!isPublicRoute() && !isAuthenticated) {
+      router.replace("/auth/login");
+      return;
     }
+
+    // Nếu yêu cầu quyền admin nhưng người dùng không phải admin
+    if (
+      requireAdmin &&
+      (!user || !user.roles || !user.roles.includes("ADMIN"))
+    ) {
+      router.replace("/");
+      return;
+    }
+
+    // Nếu route là /account thì chỉ cần đăng nhập, không cần kiểm tra vai trò
   }, [isLoading, isAuthenticated, pathname, router, user, requireAdmin]);
 
   // Hiển thị nội dung khi đã xác thực hoặc là route công khai

@@ -1,7 +1,6 @@
 "use client";
 
 import type React from "react";
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,8 +35,6 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  Upload,
-  X,
   Filter,
   ArrowUpDown,
   Eye,
@@ -45,7 +42,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -54,15 +50,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  CategoryService,
-  Category as ApiCategory,
-} from "@/services/api/category";
 import { useAuth } from "@/components/auth-provider";
+// Giả định đã có BrandService và ApiBrand
+import { BrandService, Brand as ApiBrand } from "@/services/api/brands";
 
-// Define category type
-interface Category {
-  id: number; // Đổi từ string sang number
+// Định nghĩa kiểu dữ liệu Brand
+interface Brand {
+  id: number;
   name: string;
   description?: string;
   productCount: number;
@@ -70,73 +64,57 @@ interface Category {
   createdAt: string;
 }
 
-// Define form type
-interface CategoryForm {
-  id?: number; // Đổi từ string sang number
+interface BrandForm {
+  id?: number;
   name: string;
   description: string;
   status: "active" | "inactive";
 }
 
-export default function AdminCategories() {
-  // Sample data - in a real app, this would come from a database
-  const [categories, setCategories] = useState<Category[]>([]);
-
+export default function AdminBrands() {
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [categoryToDelete, setCategoryToDelete] = useState<number | null>(null);
-  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
-  const [editCategoryOpen, setEditCategoryOpen] = useState(false);
-  const [viewCategoryOpen, setViewCategoryOpen] = useState(false);
+  const [brandToDelete, setBrandToDelete] = useState<number | null>(null);
+  const [addBrandOpen, setAddBrandOpen] = useState(false);
+  const [editBrandOpen, setEditBrandOpen] = useState(false);
+  const [viewBrandOpen, setViewBrandOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<number[]>([]);
   const [sortField, setSortField] = useState<string>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-
-  const [categoryForm, setCategoryForm] = useState<CategoryForm>({
+  const [brandForm, setBrandForm] = useState<BrandForm>({
     name: "",
     description: "",
     status: "active",
   });
-
-  const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
+  const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
   const { user } = useAuth();
-
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
-
   const [page, setPage] = useState(1);
-  const [limit] = useState(10); // Số lượng mỗi trang, có thể cho phép chỉnh nếu muốn
-  const [total, setTotal] = useState<number>(0); // Tổng số danh mục, nếu backend trả về
+  const [limit] = useState(10);
+  const [total, setTotal] = useState<number>(0);
 
-  // Lấy dữ liệu từ API khi mount hoặc khi page/limit thay đổi
   useEffect(() => {
-    fetchCategories(page, limit);
-    setSelectedCategories([]); // Reset chọn khi chuyển trang
+    fetchBrands(page, limit);
+    setSelectedBrands([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit]);
 
-  // Filter and sort categories
-  const filteredCategories = categories
-    .filter((category) => {
-      // Apply search filter
+  const filteredBrands = brands
+    .filter((brand) => {
       const matchesSearch =
-        category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        category.description
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
+        brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        brand.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         false;
-
-      // Apply status filter
       const matchesStatus =
-        statusFilter === "all" || category.status === statusFilter;
-
+        statusFilter === "all" || brand.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      // Apply sorting
       if (sortField === "name") {
         return sortDirection === "asc"
           ? a.name.localeCompare(b.name)
@@ -146,7 +124,6 @@ export default function AdminCategories() {
           ? a.productCount - b.productCount
           : b.productCount - a.productCount;
       } else if (sortField === "createdAt") {
-        // Simple date comparison for demo purposes
         return sortDirection === "asc"
           ? a.createdAt.localeCompare(b.createdAt)
           : b.createdAt.localeCompare(a.createdAt);
@@ -154,12 +131,11 @@ export default function AdminCategories() {
       return 0;
     });
 
-  const handleDeleteClick = (categoryId: number) => {
-    setCategoryToDelete(categoryId);
+  const handleDeleteClick = (brandId: number) => {
+    setBrandToDelete(brandId);
     setDeleteDialogOpen(true);
   };
 
-  // Xóa danh mục sử dụng API, đảm bảo đúng quyền và backend
   const confirmDelete = async () => {
     if (!user || !user.roles || !user.roles.includes("ADMIN")) {
       setNotification({
@@ -168,26 +144,26 @@ export default function AdminCategories() {
       });
       return;
     }
-    if (categoryToDelete !== null) {
+    if (brandToDelete !== null) {
       try {
-        await CategoryService.delete(categoryToDelete);
+        await BrandService.delete(brandToDelete);
         setDeleteDialogOpen(false);
-        setCategoryToDelete(null);
+        setBrandToDelete(null);
         setNotification({
           type: "success",
-          message: "Xóa danh mục thành công!",
+          message: "Xóa thương hiệu thành công!",
         });
-        // Gọi fetchCategories, nếu lỗi chỉ log ra console, không hiển thị lỗi cho người dùng
         try {
-          await fetchCategories(page, limit);
+          await fetchBrands(page, limit);
         } catch (fetchError) {
           // eslint-disable-next-line no-console
-          console.error("Lỗi khi reload danh sách danh mục:", fetchError);
+          console.error("Lỗi khi reload danh sách thương hiệu:", fetchError);
         }
       } catch (error: any) {
         setDeleteDialogOpen(false);
-        setCategoryToDelete(null);
-        const msg = error?.response?.data?.detail || "Xóa danh mục thất bại!";
+        setBrandToDelete(null);
+        const msg =
+          error?.response?.data?.detail || "Xóa thương hiệu thất bại!";
         setNotification({ type: "error", message: msg });
       }
     }
@@ -195,70 +171,68 @@ export default function AdminCategories() {
 
   const handleBulkDelete = () => {
     setDeleteDialogOpen(false);
-    setCategoryToDelete(null);
-    setSelectedCategories([]);
+    setBrandToDelete(null);
+    setSelectedBrands([]);
     setNotification({
       type: "success",
       message:
-        "Đã xóa các danh mục đã chọn (chỉ trên giao diện, chưa gọi API)!",
+        "Đã xóa các thương hiệu đã chọn (chỉ trên giao diện, chưa gọi API)!",
     });
   };
 
-  const handleAddCategory = () => {
-    setCategoryForm({
+  const handleAddBrand = () => {
+    setBrandForm({
       name: "",
       description: "",
       status: "active",
     });
-    setAddCategoryOpen(true);
-    setEditCategoryOpen(false);
-    setViewingCategory(null);
-    setEditingCategory(null);
+    setAddBrandOpen(true);
+    setEditBrandOpen(false);
+    setViewingBrand(null);
+    setEditingBrand(null);
   };
 
-  // Thêm biến để lưu category đang chỉnh sửa trước khi mở dialog edit
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
 
-  const handleEditCategory = (category: Category) => {
-    setCategoryForm({
-      id: category.id,
-      name: category.name,
-      description: category.description || "",
-      status: category.status,
+  const handleEditBrand = (brand: Brand) => {
+    setBrandForm({
+      id: brand.id,
+      name: brand.name,
+      description: brand.description || "",
+      status: brand.status,
     });
-    setEditingCategory(category);
-    setEditCategoryOpen(true);
-    setAddCategoryOpen(false);
-    setViewingCategory(null);
+    setEditingBrand(brand);
+    setEditBrandOpen(true);
+    setAddBrandOpen(false);
+    setViewingBrand(null);
   };
 
-  const handleViewCategory = (category: Category) => {
-    setViewingCategory(category);
-    setViewCategoryOpen(true);
-    setEditCategoryOpen(false);
-    setAddCategoryOpen(false);
-    setEditingCategory(null);
+  const handleViewBrand = (brand: Brand) => {
+    setViewingBrand(brand);
+    setViewBrandOpen(true);
+    setEditBrandOpen(false);
+    setAddBrandOpen(false);
+    setEditingBrand(null);
   };
 
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setCategoryForm({
-      ...categoryForm,
+    setBrandForm({
+      ...brandForm,
       [name]: value,
     });
   };
 
   const handleStatusChange = (value: string) => {
-    setCategoryForm({
-      ...categoryForm,
+    setBrandForm({
+      ...brandForm,
       status: value as "active" | "inactive",
     });
   };
 
-  // Thêm hoặc sửa danh mục sử dụng API, đảm bảo đúng dữ liệu backend yêu cầu
-  const saveCategory = async () => {
+  const saveBrand = async () => {
     if (!user || !user.roles || !user.roles.includes("ADMIN")) {
       setNotification({
         type: "error",
@@ -266,45 +240,44 @@ export default function AdminCategories() {
       });
       return;
     }
-    // Chuẩn hóa payload cho backend
-    const payload: { tenDanhMuc?: string; moTa?: string; trangThai?: boolean } =
-      {};
-    if (categoryForm.name) payload.tenDanhMuc = categoryForm.name;
-    if (categoryForm.description) payload.moTa = categoryForm.description;
-    // Chuyển status string về boolean cho backend
-    if (categoryForm.status)
-      payload.trangThai = categoryForm.status === "active";
+    const payload: {
+      tenThuongHieu?: string;
+      moTa?: string;
+      trangThai?: boolean;
+    } = {};
+    if (brandForm.name) payload.tenThuongHieu = brandForm.name;
+    if (brandForm.description) payload.moTa = brandForm.description;
+    if (brandForm.status) payload.trangThai = brandForm.status === "active";
 
     try {
-      if (categoryForm.id) {
-        await CategoryService.update(categoryForm.id, payload);
+      if (brandForm.id) {
+        await BrandService.update(brandForm.id, payload);
         setNotification({
           type: "success",
-          message: "Cập nhật danh mục thành công!",
+          message: "Cập nhật thương hiệu thành công!",
         });
-        await fetchCategories(page, limit);
-        setEditCategoryOpen(false);
-        setViewingCategory(null);
-        setEditingCategory(null);
+        await fetchBrands(page, limit);
+        setEditBrandOpen(false);
+        setViewingBrand(null);
+        setEditingBrand(null);
       } else {
-        await CategoryService.create(
-          payload as { tenDanhMuc: string; moTa: string; trangThai: boolean }
+        await BrandService.create(
+          payload as { tenThuongHieu: string; moTa: string; trangThai: boolean }
         );
         setNotification({
           type: "success",
-          message: "Thêm danh mục thành công!",
+          message: "Thêm thương hiệu thành công!",
         });
-        await fetchCategories(page, limit);
-        setAddCategoryOpen(false);
-        setViewingCategory(null);
-        setEditingCategory(null);
+        await fetchBrands(page, limit);
+        setAddBrandOpen(false);
+        setViewingBrand(null);
+        setEditingBrand(null);
       }
     } catch (error: any) {
-      // Chỉ đóng dialog khi có lỗi nếu cần
-      setAddCategoryOpen(false);
-      setEditCategoryOpen(false);
-      setViewingCategory(null);
-      setEditingCategory(null);
+      setAddBrandOpen(false);
+      setEditBrandOpen(false);
+      setViewingBrand(null);
+      setEditingBrand(null);
       const msg =
         error?.response?.data?.message ||
         error?.response?.data?.detail ||
@@ -323,37 +296,29 @@ export default function AdminCategories() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedCategories.length === filteredCategories.length) {
-      setSelectedCategories([]);
+    if (selectedBrands.length === filteredBrands.length) {
+      setSelectedBrands([]);
     } else {
-      setSelectedCategories(filteredCategories.map((cat) => cat.id));
+      setSelectedBrands(filteredBrands.map((b) => b.id));
     }
   };
 
-  const toggleSelectCategory = (categoryId: number) => {
-    if (selectedCategories.includes(categoryId)) {
-      setSelectedCategories(
-        selectedCategories.filter((id) => id !== categoryId)
-      );
+  const toggleSelectBrand = (brandId: number) => {
+    if (selectedBrands.includes(brandId)) {
+      setSelectedBrands(selectedBrands.filter((id) => id !== brandId));
     } else {
-      setSelectedCategories([...selectedCategories, categoryId]);
+      setSelectedBrands([...selectedBrands, brandId]);
     }
   };
 
-  // Đảm bảo fetchCategories dùng lại khi cần reload danh sách
-  const fetchCategories = async (pageParam = page, limitParam = limit) => {
-    // Gọi API với page và limit
-    const response = await CategoryService.getAllWithPaging(
-      pageParam,
-      limitParam
-    );
-    // response: { data: Category[], total: number }
+  const fetchBrands = async (pageParam = page, limitParam = limit) => {
+    const response = await BrandService.getAllWithPaging(pageParam, limitParam);
     const data = response.data;
-    setTotal(response.total ?? data.length); // Nếu backend trả về total
-    const mapped: Category[] = Array.isArray(data)
-      ? data.map((item: ApiCategory) => ({
-          id: item.maDanhMuc,
-          name: item.tenDanhMuc ?? "",
+    setTotal(response.total ?? data.length);
+    const mapped: Brand[] = Array.isArray(data)
+      ? data.map((item: ApiBrand) => ({
+          id: item.maThuongHieu,
+          name: item.tenThuongHieu ?? "",
           description: item.moTa ?? "",
           productCount:
             typeof item.soLuongSanPham === "number" ? item.soLuongSanPham : 0,
@@ -363,12 +328,11 @@ export default function AdminCategories() {
             : "",
         }))
       : [];
-    setCategories(mapped);
+    setBrands(mapped);
   };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Thông báo */}
       {notification && (
         <div
           className={`mb-4 px-4 py-2 rounded ${
@@ -388,27 +352,25 @@ export default function AdminCategories() {
         </div>
       )}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Quản lý danh mục</h1>
+        <h1 className="text-2xl font-bold">Quản lý thương hiệu</h1>
         <Button
           className="bg-pink-600 hover:bg-pink-700"
-          onClick={handleAddCategory}
+          onClick={handleAddBrand}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Thêm danh mục mới
+          Thêm thương hiệu mới
         </Button>
       </div>
-
-      {/* Bỏ Tabs và TabsList, chỉ giữ phần table */}
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle>Danh sách danh mục</CardTitle>
+          <CardTitle>Danh sách thương hiệu</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm danh mục..."
+                placeholder="Tìm kiếm thương hiệu..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -430,11 +392,10 @@ export default function AdminCategories() {
               </Button>
             </div>
           </div>
-
-          {selectedCategories.length > 0 && (
+          {selectedBrands.length > 0 && (
             <div className="bg-muted p-2 rounded-md mb-4 flex items-center justify-between">
               <span className="text-sm">
-                Đã chọn {selectedCategories.length} danh mục
+                Đã chọn {selectedBrands.length} thương hiệu
               </span>
               <Button
                 variant="destructive"
@@ -446,7 +407,6 @@ export default function AdminCategories() {
               </Button>
             </div>
           )}
-
           <div className="rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
@@ -454,9 +414,8 @@ export default function AdminCategories() {
                   <TableHead className="w-[40px] text-center">
                     <Checkbox
                       checked={
-                        selectedCategories.length ===
-                          filteredCategories.length &&
-                        filteredCategories.length > 0
+                        selectedBrands.length === filteredBrands.length &&
+                        filteredBrands.length > 0
                       }
                       onCheckedChange={toggleSelectAll}
                     />
@@ -467,7 +426,7 @@ export default function AdminCategories() {
                     onClick={() => toggleSort("name")}
                   >
                     <div className="flex items-center justify-center">
-                      Tên danh mục
+                      Tên thương hiệu
                       {sortField === "name" && (
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       )}
@@ -501,61 +460,52 @@ export default function AdminCategories() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCategories.length === 0 ? (
+                {filteredBrands.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={7}
                       className="text-center py-8 text-muted-foreground"
                     >
-                      Không tìm thấy danh mục nào
+                      Không tìm thấy thương hiệu nào
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCategories.map((category) => (
-                    <TableRow
-                      key={category.id} // Sửa lại chỉ dùng category.id
-                      className="hover:bg-muted/50"
-                    >
+                  filteredBrands.map((brand) => (
+                    <TableRow key={brand.id} className="hover:bg-muted/50">
                       <TableCell className="text-center">
                         <Checkbox
-                          checked={selectedCategories.includes(category.id)}
-                          onCheckedChange={() =>
-                            toggleSelectCategory(category.id)
-                          }
+                          checked={selectedBrands.includes(brand.id)}
+                          onCheckedChange={() => toggleSelectBrand(brand.id)}
                         />
                       </TableCell>
-                      <TableCell className="text-center">
-                        {category.id}
-                      </TableCell>
+                      <TableCell className="text-center">{brand.id}</TableCell>
                       <TableCell className="font-medium text-center">
-                        {category.name}
+                        {brand.name}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-center">
-                        {category.description}
+                        {brand.description}
                       </TableCell>
                       <TableCell className="text-center">
-                        {category.productCount}
+                        {brand.productCount}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
                           variant={
-                            category.status === "active"
-                              ? "default"
-                              : "secondary"
+                            brand.status === "active" ? "default" : "secondary"
                           }
                           className={
-                            category.status === "active"
+                            brand.status === "active"
                               ? "bg-green-100 text-green-800 hover:bg-green-100"
                               : "bg-gray-100 text-gray-800 hover:bg-gray-100"
                           }
                         >
-                          {category.status === "active"
+                          {brand.status === "active"
                             ? "Đang hoạt động"
                             : "Không hoạt động"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        {category.createdAt}
+                        {brand.createdAt}
                       </TableCell>
                       <TableCell className="text-center">
                         <DropdownMenu>
@@ -567,19 +517,19 @@ export default function AdminCategories() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => handleViewCategory(category)}
+                              onClick={() => handleViewBrand(brand)}
                             >
                               <Eye className="mr-2 h-4 w-4" />
                               <span>Xem chi tiết</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleEditCategory(category)}
+                              onClick={() => handleEditBrand(brand)}
                             >
                               <Edit className="mr-2 h-4 w-4" />
                               <span>Chỉnh sửa</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDeleteClick(category.id)}
+                              onClick={() => handleDeleteClick(brand.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               <span>Xóa</span>
@@ -593,11 +543,10 @@ export default function AdminCategories() {
               </TableBody>
             </Table>
           </div>
-
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-gray-500">
-              Hiển thị {(page - 1) * limit + (categories.length > 0 ? 1 : 0)}-
-              {(page - 1) * limit + categories.length} của {total} danh mục
+              Hiển thị {(page - 1) * limit + (brands.length > 0 ? 1 : 0)}-
+              {(page - 1) * limit + brands.length} của {total} thương hiệu
             </div>
             <nav className="flex items-center gap-1">
               <Button
@@ -612,7 +561,7 @@ export default function AdminCategories() {
               <Button
                 variant="outline"
                 size="icon"
-                disabled={categories.length < limit}
+                disabled={brands.length < limit}
                 onClick={() => setPage((p) => p + 1)}
               >
                 &gt;
@@ -621,14 +570,13 @@ export default function AdminCategories() {
           </div>
         </CardContent>
       </Card>
-
       {/* Delete confirmation dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận xóa danh mục</DialogTitle>
+            <DialogTitle>Xác nhận xóa thương hiệu</DialogTitle>
             <DialogDescription>
-              Bạn có chắc chắn muốn xóa danh mục này? Hành động này không thể
+              Bạn có chắc chắn muốn xóa thương hiệu này? Hành động này không thể
               hoàn tác.
             </DialogDescription>
           </DialogHeader>
@@ -649,30 +597,27 @@ export default function AdminCategories() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* View Category Dialog */}
-      <Dialog open={viewCategoryOpen} onOpenChange={setViewCategoryOpen}>
+      {/* View Brand Dialog */}
+      <Dialog open={viewBrandOpen} onOpenChange={setViewBrandOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Chi tiết danh mục</DialogTitle>
+            <DialogTitle>Chi tiết thương hiệu</DialogTitle>
           </DialogHeader>
-
-          {viewingCategory && (
+          {viewingBrand && (
             <div className="space-y-6 py-4">
-              {/* Bỏ hình ảnh, chỉ hiển thị thông tin dạng grid đẹp hơn */}
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     ID
                   </p>
-                  <p className="font-medium text-base">{viewingCategory.id}</p>
+                  <p className="font-medium text-base">{viewingBrand.id}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Trạng thái
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    {viewingCategory.status === "active" ? (
+                    {viewingBrand.status === "active" ? (
                       <>
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <span className="text-green-700 font-medium">
@@ -691,47 +636,41 @@ export default function AdminCategories() {
                 </div>
                 <div className="col-span-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                    Tên danh mục
+                    Tên thương hiệu
                   </p>
-                  <p className="font-medium text-base">
-                    {viewingCategory.name}
-                  </p>
+                  <p className="font-medium text-base">{viewingBrand.name}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Số sản phẩm
                   </p>
-                  <p className="font-medium">{viewingCategory.productCount}</p>
+                  <p className="font-medium">{viewingBrand.productCount}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Ngày tạo
                   </p>
-                  <p className="font-medium">{viewingCategory.createdAt}</p>
+                  <p className="font-medium">{viewingBrand.createdAt}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Mô tả
                   </p>
-                  <p className="font-normal">{viewingCategory.description}</p>
+                  <p className="font-normal">{viewingBrand.description}</p>
                 </div>
               </div>
             </div>
           )}
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setViewCategoryOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setViewBrandOpen(false)}>
               Đóng
             </Button>
-            {viewingCategory && (
+            {viewingBrand && (
               <Button
                 className="bg-pink-600 hover:bg-pink-700"
                 onClick={() => {
-                  setViewCategoryOpen(false);
-                  handleEditCategory(viewingCategory);
+                  setViewBrandOpen(false);
+                  handleEditBrand(viewingBrand);
                 }}
               >
                 <Edit className="mr-2 h-4 w-4" />
@@ -741,26 +680,24 @@ export default function AdminCategories() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Add Category Dialog */}
-      <Dialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
+      {/* Add Brand Dialog */}
+      <Dialog open={addBrandOpen} onOpenChange={setAddBrandOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Thêm danh mục mới</DialogTitle>
+            <DialogTitle>Thêm thương hiệu mới</DialogTitle>
             <DialogDescription>
-              Điền thông tin danh mục mới vào form bên dưới.
+              Điền thông tin thương hiệu mới vào form bên dưới.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Tên danh mục</Label>
+              <Label htmlFor="name">Tên thương hiệu</Label>
               <Input
                 id="name"
                 name="name"
-                value={categoryForm.name}
+                value={brandForm.name}
                 onChange={handleFormChange}
-                placeholder="Nhập tên danh mục"
+                placeholder="Nhập tên thương hiệu"
               />
             </div>
             <div className="space-y-2">
@@ -768,47 +705,45 @@ export default function AdminCategories() {
               <Textarea
                 id="description"
                 name="description"
-                value={categoryForm.description}
+                value={brandForm.description}
                 onChange={handleFormChange}
-                placeholder="Nhập mô tả danh mục"
+                placeholder="Nhập mô tả thương hiệu"
                 className="h-20"
               />
             </div>
-            {/* ĐÃ BỎ phần trạng thái ở form thêm mới */}
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddCategoryOpen(false)}>
+            <Button variant="outline" onClick={() => setAddBrandOpen(false)}>
               Hủy
             </Button>
             <Button
-              onClick={saveCategory}
+              onClick={saveBrand}
               className="bg-pink-600 hover:bg-pink-700"
-              disabled={!categoryForm.name}
+              disabled={!brandForm.name}
             >
-              Thêm danh mục
+              Thêm thương hiệu
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Category Dialog */}
-      <Dialog open={editCategoryOpen} onOpenChange={setEditCategoryOpen}>
+      {/* Edit Brand Dialog */}
+      <Dialog open={editBrandOpen} onOpenChange={setEditBrandOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa danh mục</DialogTitle>
-            <DialogDescription>Chỉnh sửa thông tin danh mục.</DialogDescription>
+            <DialogTitle>Chỉnh sửa thương hiệu</DialogTitle>
+            <DialogDescription>
+              Chỉnh sửa thông tin thương hiệu.
+            </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Tên danh mục</Label>
+              <Label htmlFor="edit-name">Tên thương hiệu</Label>
               <Input
                 id="edit-name"
                 name="name"
-                value={categoryForm.name}
+                value={brandForm.name}
                 onChange={handleFormChange}
-                placeholder="Nhập tên danh mục"
+                placeholder="Nhập tên thương hiệu"
               />
             </div>
             <div className="space-y-2">
@@ -816,16 +751,16 @@ export default function AdminCategories() {
               <Textarea
                 id="edit-description"
                 name="description"
-                value={categoryForm.description}
+                value={brandForm.description}
                 onChange={handleFormChange}
-                placeholder="Nhập mô tả danh mục"
+                placeholder="Nhập mô tả thương hiệu"
                 className="h-20"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-status">Trạng thái</Label>
               <Select
-                value={categoryForm.status}
+                value={brandForm.status}
                 onValueChange={handleStatusChange}
               >
                 <SelectTrigger>
@@ -837,32 +772,27 @@ export default function AdminCategories() {
                 </SelectContent>
               </Select>
             </div>
-            {/* Bỏ phần hình ảnh danh mục */}
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditCategoryOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setEditBrandOpen(false)}>
               Hủy
             </Button>
-            {/* Nút quay lại xem chi tiết */}
-            {editingCategory && (
+            {editingBrand && (
               <Button
                 variant="secondary"
                 onClick={() => {
-                  setEditCategoryOpen(false);
-                  setViewingCategory(editingCategory);
-                  setViewCategoryOpen(true);
+                  setEditBrandOpen(false);
+                  setViewingBrand(editingBrand);
+                  setViewBrandOpen(true);
                 }}
               >
                 Xem chi tiết
               </Button>
             )}
             <Button
-              onClick={saveCategory}
+              onClick={saveBrand}
               className="bg-pink-600 hover:bg-pink-700"
-              disabled={!categoryForm.name}
+              disabled={!brandForm.name}
             >
               Lưu thay đổi
             </Button>
@@ -872,5 +802,3 @@ export default function AdminCategories() {
     </div>
   );
 }
-
-// Thêm hàm mới vào CategoryService để gọi API có phân trang

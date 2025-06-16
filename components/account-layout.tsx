@@ -42,16 +42,25 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
         <div className="md:w-64 space-y-4">
           <Card className="p-4">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold">
-                {user?.username?.charAt(0) || "U"}{" "}
-                {/* Use username's first character or fallback */}
-              </div>
+              {user?.anhDaiDien ? (
+                <img
+                  src={user.anhDaiDien}
+                  alt="Avatar"
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold">
+                  {user?.tenNguoiDung?.charAt(0) ||
+                    user?.hoTen?.charAt(0) ||
+                    "U"}
+                </div>
+              )}
               <div>
-                <p className="font-medium">{user?.username || "Người dùng"}</p>{" "}
-                {/* Display username */}
+                <p className="font-medium">
+                  {user?.tenNguoiDung || "Người dùng"}
+                </p>
                 <p className="text-sm text-gray-500">
-                  {user?.email || user?.phone || "user@example.com"}{" "}
-                  {/* Display email or phone */}
+                  {user?.email || "user@example.com"}
                 </p>
               </div>
             </div>

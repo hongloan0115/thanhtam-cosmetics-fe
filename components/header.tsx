@@ -139,7 +139,7 @@ export default function Header() {
                   <Avatar className="h-8 w-8">
                     <AvatarImage
                       src={
-                        user?.avatar_url ||
+                        user?.anhDaiDien ||
                         "/placeholder.svg?height=32&width=32"
                       }
                       alt={user?.username || "User"}
@@ -151,7 +151,7 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
+                {/* <div className="flex items-center justify-start gap-2 p-2">
                   <Avatar className="h-10 w-10">
                     <AvatarImage
                       src={
@@ -171,7 +171,7 @@ export default function Header() {
                     </p>
                   </div>
                 </div>
-                <DropdownMenuSeparator />
+                <DropdownMenuSeparator /> */}
                 <DropdownMenuItem asChild>
                   <Link
                     href="/account"

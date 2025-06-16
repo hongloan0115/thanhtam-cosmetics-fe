@@ -9,7 +9,7 @@ export const AuthService = {
       });
       return response.data;
     } catch (error: any) {
-      if (error.response && error.response.status === 401) {
+      if (error.response && error.response.status === 400) {
         throw { message: "Tên đăng nhập hoặc mật khẩu không đúng." };
       }
       throw {
@@ -52,23 +52,29 @@ export const AuthService = {
   },
 
   async updateProfile(fullName: string, phone: string) {
-    const response = await axiosInstance.put("/user/profile", {
+    const payload: any = {
       hoTen: fullName,
       soDienThoai: phone,
+    };
+    const response = await axiosInstance.put("/auth/profile", payload);
+    return response.data;
+  },
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    // Gửi đúng tên biến cho backend: old_password và new_password
+    const response = await axiosInstance.post("/auth/change-password", {
+      old_password: currentPassword,
+      new_password: newPassword,
     });
     return response.data;
   },
 
-  async changePassword(
-    currentPassword: string,
-    newPassword: string,
-    confirmPassword: string
-  ) {
-    const response = await axiosInstance.post("/user/change-password", {
-      currentPassword,
-      newPassword,
-      confirmPassword,
-    });
-    return response.data;
+  async loginAndGetUser(email: string, password: string) {
+    // Đăng nhập và lấy access_token
+    const { access_token } = await this.login(email, password);
+    localStorage.setItem("accessToken", access_token);
+    // Lấy thông tin user
+    const userInfo = await this.getCurrentUser();
+    return userInfo;
   },
 };

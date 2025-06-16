@@ -3,11 +3,34 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import type { Product } from "@/app/admin/products/types";
+
+// Bổ sung type Product (copy từ page.tsx hoặc định nghĩa lại)
+export interface Product {
+  maSanPham: number;
+  tenSanPham: string;
+  moTa?: string;
+  giaBan: number;
+  soLuongTonKho: number;
+  giamGia?: number;
+  trangThai: boolean;
+  maDanhMuc: number;
+  maThuongHieu?: number;
+  ngayTao: string;
+  ngayCapNhat: string;
+  hinhAnh: {
+    maHinhAnh: number;
+    duongDanAnh: string;
+    maAnhClound: string;
+    moTa: string;
+    laAnhChinh: number;
+    maSanPham: number;
+  }[];
+}
 
 interface ProductDetailProps {
   product: Product;
   categories: { id: number; name: string }[];
+  brands: { id: number; name: string }[]; // Thêm prop brands
   onEdit: (product: Product) => void;
   onDelete: (productId: number) => void;
   onClose: () => void;
@@ -16,6 +39,7 @@ interface ProductDetailProps {
 const ProductDetail: React.FC<ProductDetailProps> = ({
   product,
   categories,
+  brands, // nhận prop brands
   onEdit,
   onDelete,
   onClose,
@@ -24,12 +48,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   // Lấy danh sách ảnh từ product.hinhAnh nếu có, fallback sang product.images (string[])
   let images: string[] = [];
   if (product.hinhAnh && product.hinhAnh.length > 0) {
-    images = product.hinhAnh.map((img) => img.duongDanAnh);
+    images = product.hinhAnh.map((img) => img.duongDan || img.duongDanAnh);
   }
   // Tìm ảnh chính
   const mainImage =
     (product.hinhAnh &&
-      product.hinhAnh.find((img) => img.laAnhChinh === 1)?.duongDanAnh) ||
+      product.hinhAnh.find(
+        (img) => img.laAnhChinh === 1 || img.laAnhChinh === true
+      )?.duongDan) ||
+    (product.hinhAnh &&
+      product.hinhAnh.find(
+        (img) => img.laAnhChinh === 1 || img.laAnhChinh === true
+      )?.duongDanAnh) ||
     images[0] ||
     "/placeholder.svg?height=300&width=300";
 
@@ -61,12 +91,22 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
       <div className="space-y-4">
         <div>
           <h3 className="text-lg font-semibold">{product.tenSanPham}</h3>
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-gray-500">
-              {categories.find((cat) => cat.id === Number(product.maDanhMuc))
-                ?.name || ""}
-            </p>
-            {/* Nếu muốn hiển thị badge nổi bật, cần bổ sung trường featured vào Product */}
+          <div className="flex flex-col gap-1 mt-2">
+            <div>
+              <span className="text-xs text-gray-400 mr-1">Danh mục:</span>
+              <span className="text-sm text-gray-700 font-medium">
+                {categories.find((cat) => cat.id === Number(product.maDanhMuc))
+                  ?.name || ""}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs text-gray-400 mr-1">Thương hiệu:</span>
+              <span className="text-sm text-gray-700 font-medium">
+                {brands.find(
+                  (brand) => brand.id === Number(product.maThuongHieu)
+                )?.name || ""}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex justify-between">
@@ -84,12 +124,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
             <p className="text-sm text-gray-500">Trạng thái</p>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                product.trangThai
+                product.trangThai === "ĐANG BÁN"
                   ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
+                  : product.trangThai === "SẮP HẾT"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : product.trangThai === "HẾT HÀNG"
+                  ? "bg-red-100 text-red-800"
+                  : product.trangThai === "SẮP VỀ"
+                  ? "bg-blue-100 text-blue-800"
+                  : product.trangThai === "NGỪNG BÁN"
+                  ? "bg-gray-200 text-gray-600"
+                  : "bg-gray-100 text-gray-800"
               }`}
             >
-              {product.trangThai ? "Còn hàng" : "Hết hàng"}
+              {product.trangThai}
             </span>
           </div>
         </div>
@@ -100,11 +148,31 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-gray-500">Ngày tạo</p>
-            <p>{product.ngayTao}</p>
+            <p>
+              {product.ngayTao
+                ? new Date(product.ngayTao).toLocaleString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : ""}
+            </p>
           </div>
           <div>
             <p className="text-gray-500">Cập nhật lần cuối</p>
-            <p>{product.ngayCapNhat}</p>
+            <p>
+              {product.ngayCapNhat
+                ? new Date(product.ngayCapNhat).toLocaleString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : ""}
+            </p>
           </div>
         </div>
         <div className="pt-4 flex justify-end gap-2">
