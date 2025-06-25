@@ -25,11 +25,30 @@ export default function ProductsPage() {
 
   // Thêm state cho categories từ API
   const [categories, setCategories] = useState<Category[]>([]);
+  // Thêm state cho brands từ API
+  const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
+
+  // Thay đổi state
+  const [selectedCategory, setSelectedCategory] = useState<string>("0");
+
+  // Thêm state cho notification
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchBrands();
   }, []);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Hàm fetch sản phẩm mặc định
   const fetchProducts = async () => {
@@ -53,6 +72,23 @@ export default function ProductsPage() {
     }
   };
 
+  // Lấy danh sách thương hiệu từ API
+  const fetchBrands = async () => {
+    try {
+      const data = await (
+        await import("@/services/api/brands")
+      ).BrandService.getAll();
+      setBrands(
+        data.map((brand: any) => ({
+          id: String(brand.maThuongHieu),
+          name: brand.tenThuongHieu,
+        }))
+      );
+    } catch (e) {
+      setBrands([]);
+    }
+  };
+
   // Hàm tìm kiếm sản phẩm
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
@@ -68,15 +104,11 @@ export default function ProductsPage() {
   // Hàm lọc sản phẩm
   const handleFilter = async () => {
     setLoading(true);
-    // Ưu tiên lọc theo danh mục đầu tiên nếu có
     const maDanhMuc =
-      selectedCategories.length > 0 &&
-      selectedCategories[0] !== "all" &&
-      selectedCategories[0] !== "0"
-        ? selectedCategories[0]
+      selectedCategory !== "all" && selectedCategory !== "0"
+        ? selectedCategory
         : undefined;
-    const thuongHieu =
-      selectedBrands.length > 0 ? selectedBrands[0] : undefined;
+    const thuongHieu = selectedBrands.length > 0 ? selectedBrands : undefined;
     const [giaMin, giaMax] = priceRange;
     const params: any = {};
     if (maDanhMuc) params.maDanhMuc = maDanhMuc;
@@ -88,13 +120,9 @@ export default function ProductsPage() {
     setLoading(false);
   };
 
-  // Xử lý chọn danh mục
+  // Xử lý chọn danh mục (chỉ chọn một)
   const handleCategoryChange = (id: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(id)
-        ? prev.filter((c) => c !== id)
-        : [...prev.filter((c) => c !== "all"), id]
-    );
+    setSelectedCategory(id);
   };
 
   // Xử lý chọn thương hiệu
@@ -109,6 +137,12 @@ export default function ProductsPage() {
     setPriceRange([values[0], values[1]]);
   };
 
+  // Gọi filter khi người dùng nhả chuột khỏi slider giá
+  const handlePriceCommit = (values: number[]) => {
+    setPriceRange([values[0], values[1]]);
+    handleFilter();
+  };
+
   // Xử lý enter trong ô tìm kiếm
   const handleSearchInputKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>
@@ -116,17 +150,33 @@ export default function ProductsPage() {
     if (e.key === "Enter") handleSearch();
   };
 
-  // brands vẫn hardcode
-  const brands = [
-    { id: "thanhtam", name: "Thanh Tâm" },
-    { id: "loreal", name: "L'Oréal" },
-    { id: "maybelline", name: "Maybelline" },
-    { id: "nivea", name: "Nivea" },
-    { id: "innisfree", name: "Innisfree" },
-  ];
+  useEffect(() => {
+    // Gọi API lọc mỗi khi selectedCategory hoặc selectedBrands thay đổi
+    if (selectedCategory !== undefined) {
+      handleFilter();
+    }
+  }, [selectedCategory, selectedBrands]);
 
   return (
     <div className="container py-8">
+      {notification && (
+        <div
+          className={`mb-4 px-4 py-2 rounded ${
+            notification.type === "success"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {notification.message}
+          <button
+            className="float-right ml-4 text-lg font-bold"
+            onClick={() => setNotification(null)}
+            aria-label="Đóng"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <h1 className="text-3xl font-bold mb-8">Sản phẩm</h1>
 
       <div className="flex flex-col md:flex-row gap-8">
@@ -137,14 +187,16 @@ export default function ProductsPage() {
             <div className="space-y-2">
               {categories.map((category) => (
                 <div key={category.maDanhMuc} className="flex items-center">
-                  <Checkbox
+                  {/* Sử dụng radio thay vì checkbox */}
+                  <input
+                    type="radio"
                     id={`category-${category.maDanhMuc}`}
-                    checked={selectedCategories.includes(
-                      String(category.maDanhMuc)
-                    )}
-                    onCheckedChange={() =>
+                    name="category"
+                    checked={selectedCategory === String(category.maDanhMuc)}
+                    onChange={() =>
                       handleCategoryChange(String(category.maDanhMuc))
                     }
+                    className="accent-pink-600"
                   />
                   <label
                     htmlFor={`category-${category.maDanhMuc}`}
@@ -187,6 +239,7 @@ export default function ProductsPage() {
                 max={1000000}
                 step={50000}
                 onValueChange={handlePriceChange}
+                onValueCommit={handlePriceCommit}
               />
               <div className="flex items-center justify-between">
                 <span className="text-sm">{formatCurrency(priceRange[0])}</span>
@@ -194,13 +247,6 @@ export default function ProductsPage() {
               </div>
             </div>
           </div>
-
-          <Button
-            className="w-full bg-pink-600 hover:bg-pink-700"
-            onClick={handleFilter}
-          >
-            Áp dụng
-          </Button>
         </div>
 
         {/* Main content */}
@@ -252,8 +298,8 @@ export default function ProductsPage() {
           <div className="md:hidden mb-6">
             <Tabs
               defaultValue="0"
-              value={selectedCategories[0] || "0"}
-              onValueChange={(val) => setSelectedCategories([val])}
+              value={selectedCategory}
+              onValueChange={(val) => setSelectedCategory(val)}
             >
               <TabsList className="w-full overflow-x-auto">
                 {categories.map((category) => (
@@ -285,7 +331,7 @@ export default function ProductsPage() {
                     image:
                       product.hinhAnh && product.hinhAnh.length > 0
                         ? product.hinhAnh.find((img) => img.laAnhChinh)
-                            ?.duongDanAnh || product.hinhAnh[0].duongDanAnh
+                            ?.duongDan || product.hinhAnh[0].duongDan
                         : "/placeholder.svg",
                     // Các trường không có trong API, giữ nguyên logic cũ hoặc random
                     rating: 4.5 + (idx % 5) * 0.1,
@@ -298,6 +344,13 @@ export default function ProductsPage() {
                       "",
                     isNew: idx % 3 === 0,
                   }}
+                  {...(ProductCard.length > 1 && {
+                    onAddToCartSuccess: () =>
+                      setNotification({
+                        type: "success",
+                        message: "Thêm vào giỏ hàng thành công!",
+                      }),
+                  })}
                 />
               ))
             )}

@@ -19,6 +19,12 @@ export default function CartPage() {
       try {
         const items = await CartService.getItems();
         setCartItems(items);
+      } catch (error: any) {
+        if (error?.response?.status === 401) {
+          // Redirect to login if unauthorized
+          window.location.href = "/auth/login";
+          return;
+        }
       } finally {
         setLoading(false);
       }
@@ -39,6 +45,8 @@ export default function CartPage() {
     await CartService.removeItem(id);
     const items = await CartService.getItems();
     setCartItems(items);
+    // Phát sự kiện để header cập nhật lại số lượng giỏ hàng
+    window.dispatchEvent(new Event("cart:remove"));
   };
 
   // Xóa toàn bộ giỏ hàng
@@ -107,8 +115,8 @@ export default function CartPage() {
                               src={
                                 item.sanPham?.hinhAnh?.find(
                                   (img: any) => img.laAnhChinh
-                                )?.duongDanAnh ||
-                                item.sanPham?.hinhAnh?.[0]?.duongDanAnh ||
+                                )?.duongDan ||
+                                item.sanPham?.hinhAnh?.[0]?.duongDan ||
                                 "/placeholder.svg"
                               }
                               alt={item.sanPham?.tenSanPham || "Sản phẩm"}

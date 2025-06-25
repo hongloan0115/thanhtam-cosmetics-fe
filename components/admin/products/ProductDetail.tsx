@@ -19,7 +19,7 @@ export interface Product {
   ngayCapNhat: string;
   hinhAnh: {
     maHinhAnh: number;
-    duongDanAnh: string;
+    duongDan: string;
     maAnhClound: string;
     moTa: string;
     laAnhChinh: number;
@@ -48,7 +48,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
   // Lấy danh sách ảnh từ product.hinhAnh nếu có, fallback sang product.images (string[])
   let images: string[] = [];
   if (product.hinhAnh && product.hinhAnh.length > 0) {
-    images = product.hinhAnh.map((img) => img.duongDan || img.duongDanAnh);
+    images = product.hinhAnh.map((img) => img.duongDan || img.duongDan);
   }
   // Tìm ảnh chính
   const mainImage =
@@ -59,7 +59,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
     (product.hinhAnh &&
       product.hinhAnh.find(
         (img) => img.laAnhChinh === 1 || img.laAnhChinh === true
-      )?.duongDanAnh) ||
+      )?.duongDan) ||
     images[0] ||
     "/placeholder.svg?height=300&width=300";
 

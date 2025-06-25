@@ -258,22 +258,6 @@ const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
               Đánh dấu là sản phẩm nổi bật
             </label>
           </div>
-          {/* Thêm trạng thái khi chỉnh sửa */}
-          {mode === "edit" && (
-            <div className="space-y-2">
-              <Label htmlFor="edit-status">Trạng thái</Label>
-              <select
-                id="edit-status"
-                name="trangThai"
-                className="border rounded-md px-3 py-2 w-full"
-                value={productForm.trangThai || ""}
-                onChange={(e) => handleStatusChange(e.target.value)}
-              >
-                <option value="ĐANG BÁN">Đang bán</option>
-                <option value="NGỪNG BÁN">Ngừng bán</option>
-              </select>
-            </div>
-          )}
           <div className="space-y-2">
             <Label>Hình ảnh sản phẩm</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -355,5 +339,4 @@ const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
     </Dialog>
   );
 };
-
 export default ProductFormDialog;

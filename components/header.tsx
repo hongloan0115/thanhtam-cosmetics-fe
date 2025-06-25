@@ -59,7 +59,7 @@ export default function Header() {
     fetchCartCount();
 
     const handleCartAdd = () => {
-      setCartCount((prev) => prev + 1);
+      fetchCartCount(); // Cập nhật lại số lượng thực tế từ API thay vì tăng lên 1
     };
     const handleCartClear = () => {
       setCartCount(0);
@@ -67,10 +67,12 @@ export default function Header() {
 
     window.addEventListener("cart:add", handleCartAdd);
     window.addEventListener("cart:clear", handleCartClear);
+    window.addEventListener("cart:remove", handleCartAdd); // Thêm lắng nghe sự kiện xóa
 
     return () => {
       window.removeEventListener("cart:add", handleCartAdd);
       window.removeEventListener("cart:clear", handleCartClear);
+      window.removeEventListener("cart:remove", handleCartAdd); // Xóa lắng nghe khi unmount
     };
   }, []);
 

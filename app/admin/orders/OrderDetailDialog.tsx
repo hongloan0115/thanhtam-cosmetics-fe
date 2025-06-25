@@ -48,6 +48,8 @@ interface Order {
     email: string;
     phone: string;
   };
+  hoTenNguoiNhan?: string;
+  soDienThoaiNguoiNhan?: string;
 }
 
 interface Props {
@@ -121,13 +123,15 @@ export default function OrderDetailDialog({
                       <CardContent className="p-4 space-y-2">
                         <div>
                           <p className="font-medium">
-                            {getUserName(order.customerId)}
+                            {order.hoTenNguoiNhan ||
+                              getUserName(order.customerId)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {getUserEmail(order.customerId)}
+                            {order.customer.email}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {getUserPhone(order.customerId)}
+                            {order.soDienThoaiNguoiNhan ||
+                              getUserPhone(order.customerId)}
                           </p>
                         </div>
                       </CardContent>
@@ -145,6 +149,12 @@ export default function OrderDetailDialog({
                           {order.shippingAddress ||
                             "Chưa cung cấp địa chỉ giao hàng"}
                         </p>
+                        {order.notes && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            <span className="font-medium">Ghi chú: </span>
+                            {order.notes}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -193,8 +203,6 @@ export default function OrderDetailDialog({
                             {formatDate(order.date)}
                           </span>
                         </div>
-                        {/* Tổng sản phẩm, tạm tính, phí vận chuyển, tổng cộng */}
-                        {/* Nếu có order.items và order.shippingFee */}
                         {order.items && (
                           <div className="flex justify-between">
                             <span className="text-sm text-muted-foreground">

@@ -10,13 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,9 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import {
   Search,
   Eye,
@@ -66,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { OrderService } from "@/services/api/orders";
+import { AddressService } from "@/services/api/address";
 import OrderDetailDialog from "./OrderDetailDialog";
 
 // Define types based on API response
@@ -115,7 +107,57 @@ interface Order {
     email: string;
     phone: string;
   };
+  // Thêm các trường chi tiết
+  items?: {
+    id: number;
+    productId: number;
+    productName: string;
+    productImage: string;
+    quantity: number;
+    price: number;
+    total: number;
+  }[];
+  shippingFee?: number;
 }
+
+// Map backend status to UI status
+const mapStatusToUI = (status: string) => {
+  switch (status) {
+    case "CHỜ XÁC NHẬN":
+      return "CHỜ XỬ LÝ";
+    case "ĐANG GIAO":
+      return "ĐANG GIAO";
+    case "HOÀN THÀNH":
+      return "ĐÃ GIAO";
+    case "ĐÃ BỊ HUỶ":
+      return "ĐÃ HỦY";
+    default:
+      return status;
+  }
+};
+
+// Map UI status to backend status enum
+const mapStatusToBackend = (status: string) => {
+  switch (status) {
+    case "CHỜ XỬ LÝ":
+    case "pending":
+      return "CHỜ XÁC NHẬN";
+    case "ĐANG XỬ LÝ":
+    case "processing":
+      return "CHỜ XÁC NHẬN"; // Nếu backend không có "ĐANG XỬ LÝ", map về "CHỜ XÁC NHẬN"
+    case "ĐANG GIAO":
+    case "shipped":
+      return "ĐANG GIAO";
+    case "ĐÃ GIAO":
+    case "delivered":
+      return "HOÀN THÀNH";
+    case "ĐÃ HỦY":
+    case "cancelled":
+      return "ĐÃ BỊ HUỶ";
+    default:
+      return status;
+  }
+};
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -130,18 +172,26 @@ export default function AdminOrders() {
     direction: "desc" as "asc" | "desc",
   });
   const [isStatusUpdateLoading, setIsStatusUpdateLoading] = useState(false);
+  const [addressNames, setAddressNames] = useState<{
+    province?: string;
+    district?: string;
+    ward?: string;
+  }>({});
+  const [statusUpdateMessage, setStatusUpdateMessage] = useState<string | null>(
+    null
+  );
 
   // Fetch orders from API
   useEffect(() => {
     async function fetchOrders() {
       try {
         const apiOrders: ApiOrder[] = await OrderService.getAllOrdersForAdmin();
-        // Normalize data
+        // Normalize data, map trạng thái về UI
         const normalizedOrders: Order[] = apiOrders.map((o) => ({
           id: o.maDonHang.toString(),
           customerId: o.maNguoiDung,
           date: o.ngayDat,
-          status: o.trangThai,
+          status: mapStatusToUI(o.trangThai),
           total: parseFloat(o.tongTien),
           shippingAddress: [
             o.diaChiChiTiet,
@@ -197,7 +247,28 @@ export default function AdminOrders() {
 
     // Status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((order) => order.status === statusFilter);
+      // Map filter value về UI status
+      let filterStatus = "";
+      switch (statusFilter) {
+        case "pending":
+          filterStatus = "CHỜ XỬ LÝ";
+          break;
+        case "processing":
+          filterStatus = "ĐANG XỬ LÝ";
+          break;
+        case "shipped":
+          filterStatus = "ĐANG GIAO";
+          break;
+        case "delivered":
+          filterStatus = "ĐÃ GIAO";
+          break;
+        case "cancelled":
+          filterStatus = "ĐÃ HỦY";
+          break;
+        default:
+          filterStatus = statusFilter;
+      }
+      filtered = filtered.filter((order) => order.status === filterStatus);
     }
 
     // Date filter
@@ -290,7 +361,7 @@ export default function AdminOrders() {
         return (
           <Badge
             variant="outline"
-            className="bg-yellow-100 text-yellow-800 flex items-center gap-1"
+            className="bg-yellow-100 text-yellow-800 border-yellow-200 flex items-center gap-1"
           >
             <Clock className="h-3 w-3" /> Chờ xử lý
           </Badge>
@@ -299,7 +370,7 @@ export default function AdminOrders() {
         return (
           <Badge
             variant="outline"
-            className="bg-blue-100 text-blue-800 flex items-center gap-1"
+            className="bg-blue-100 text-blue-800 border-blue-200 flex items-center gap-1"
           >
             <RefreshCw className="h-3 w-3" /> Đang xử lý
           </Badge>
@@ -308,7 +379,7 @@ export default function AdminOrders() {
         return (
           <Badge
             variant="outline"
-            className="bg-purple-100 text-purple-800 flex items-center gap-1"
+            className="bg-purple-100 text-purple-800 border-purple-200 flex items-center gap-1"
           >
             <Truck className="h-3 w-3" /> Đang giao
           </Badge>
@@ -317,7 +388,7 @@ export default function AdminOrders() {
         return (
           <Badge
             variant="outline"
-            className="bg-green-100 text-green-800 flex items-center gap-1"
+            className="bg-green-100 text-green-800 border-green-200 flex items-center gap-1"
           >
             <CheckCircle className="h-3 w-3" /> Đã giao
           </Badge>
@@ -326,13 +397,20 @@ export default function AdminOrders() {
         return (
           <Badge
             variant="outline"
-            className="bg-red-100 text-red-800 flex items-center gap-1"
+            className="bg-red-100 text-red-800 border-red-200 flex items-center gap-1"
           >
             <XCircle className="h-3 w-3" /> Đã hủy
           </Badge>
         );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-gray-100 text-gray-800 border-gray-200"
+          >
+            {status}
+          </Badge>
+        );
     }
   };
 
@@ -387,24 +465,106 @@ export default function AdminOrders() {
   };
 
   // Handle status change (call API)
-  const handleStatusChange = async (status: string) => {
-    if (!currentOrder) return;
+  const handleStatusChange = async (status: string, orderId?: string) => {
+    const targetOrderId = orderId || currentOrder?.id;
+    if (!targetOrderId) return;
     setIsStatusUpdateLoading(true);
     try {
-      await OrderService.updateOrderStatus(currentOrder.id, status);
+      await OrderService.updateOrderStatus(
+        targetOrderId,
+        mapStatusToBackend(status)
+      );
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === currentOrder.id ? { ...order, status } : order
+          order.id === targetOrderId ? { ...order, status: status } : order
         )
       );
-      setCurrentOrder((prev) => (prev ? { ...prev, status } : prev));
+      // Nếu đang mở dialog và đúng đơn hàng thì cập nhật luôn
+      if (currentOrder && currentOrder.id === targetOrderId) {
+        setCurrentOrder((prev) => (prev ? { ...prev, status } : prev));
+      }
+      setStatusUpdateMessage("Cập nhật trạng thái đơn hàng thành công!");
+      setIsViewDialogOpen(false);
     } finally {
       setIsStatusUpdateLoading(false);
     }
   };
 
-  const viewOrderDetails = (order: Order) => {
-    setCurrentOrder(order);
+  // Hàm lấy tên địa chỉ từ mã
+  const resolveAddressNames = async (
+    provinceCode?: string | number,
+    districtCode?: string | number,
+    wardCode?: string | number
+  ) => {
+    let province = "",
+      district = "",
+      ward = "";
+    try {
+      if (provinceCode) {
+        const provinces = await AddressService.getProvinces();
+        const found = provinces.find((p) => p.code === Number(provinceCode));
+        province = found?.name || "";
+      }
+      if (districtCode) {
+        const districts = await AddressService.getDistrictsByProvince(
+          Number(provinceCode)
+        );
+        const found = districts.find((d) => d.code === Number(districtCode));
+        district = found?.name || "";
+      }
+      if (wardCode) {
+        const wards = await AddressService.getWardsByDistrict(
+          Number(districtCode)
+        );
+        const found = wards.find((w) => w.code === Number(wardCode));
+        ward = found?.name || "";
+      }
+    } catch {}
+    return { province, district, ward };
+  };
+
+  const viewOrderDetails = async (order: Order) => {
+    // Lấy chi tiết đơn hàng từ API
+    try {
+      const detail = await OrderService.getOrderById(order.id);
+      // Resolve address names
+      const { province, district, ward } = await resolveAddressNames(
+        detail.tinhThanh,
+        detail.quanHuyen,
+        detail.phuongXa
+      );
+      const addressParts = [
+        detail.diaChiChiTiet,
+        ward,
+        district,
+        province,
+      ].filter(Boolean);
+      const shippingAddress = addressParts.join(", ");
+      // Map chi tiết sản phẩm
+      const items =
+        Array.isArray(detail.chiTietDonHang) && detail.chiTietDonHang.length > 0
+          ? detail.chiTietDonHang.map((item: any, idx: number) => ({
+              id: item.id || idx,
+              productId: item.maSanPham,
+              productName: item.tenSanPham,
+              productImage: item.hinhAnh || "",
+              quantity: item.soLuong,
+              price: item.donGia,
+              total: item.tongTien,
+            }))
+          : [];
+      setCurrentOrder({
+        ...order,
+        items,
+        shippingFee: detail.phiVanChuyen || 0,
+        notes: detail.ghiChu || order.notes,
+        shippingAddress,
+        hoTenNguoiNhan: detail.hoTenNguoiNhan,
+        soDienThoaiNguoiNhan: detail.soDienThoaiNguoiNhan,
+      });
+    } catch {
+      setCurrentOrder(order);
+    }
     setIsViewDialogOpen(true);
   };
 
@@ -544,6 +704,18 @@ export default function AdminOrders() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Hiển thị thông báo cập nhật trạng thái */}
+      {statusUpdateMessage && (
+        <div className="mb-4 px-4 py-2 rounded bg-green-100 text-green-800 border border-green-200">
+          {statusUpdateMessage}
+          <button
+            className="ml-2 text-sm underline"
+            onClick={() => setStatusUpdateMessage(null)}
+          >
+            Đóng
+          </button>
+        </div>
+      )}
       <h1 className="text-3xl font-bold">Quản lý đơn hàng</h1>
 
       {/* Dashboard Cards */}
@@ -650,249 +822,239 @@ export default function AdminOrders() {
         </Card>
       </div>
 
-      {/* Filters, Search, Pagination wrapper */}
-      <div>
-        {/* Search & Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm đơn hàng..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle>Danh sách đơn hàng</CardTitle>
+            <div className="flex items-center gap-2"></div>
           </div>
-          <div className="flex gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Lọc theo trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="pending">Chờ xử lý</SelectItem>
-                <SelectItem value="processing">Đang xử lý</SelectItem>
-                <SelectItem value="shipped">Đang giao</SelectItem>
-                <SelectItem value="delivered">Đã giao</SelectItem>
-                <SelectItem value="cancelled">Đã hủy</SelectItem>
-              </SelectContent>
-            </Select>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Tìm kiếm đơn hàng..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Lọc theo trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                  <SelectItem value="pending">Chờ xử lý</SelectItem>
+                  <SelectItem value="processing">Đang xử lý</SelectItem>
+                  <SelectItem value="shipped">Đang giao</SelectItem>
+                  <SelectItem value="delivered">Đã giao</SelectItem>
+                  <SelectItem value="cancelled">Đã hủy</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Lọc theo thời gian" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả thời gian</SelectItem>
-                <SelectItem value="today">Hôm nay</SelectItem>
-                <SelectItem value="week">7 ngày qua</SelectItem>
-                <SelectItem value="month">30 ngày qua</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon">
-              <Filter className="h-4 w-4" />
-            </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Xuất dữ liệu</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Lọc theo thời gian" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả thời gian</SelectItem>
+                  <SelectItem value="today">Hôm nay</SelectItem>
+                  <SelectItem value="week">7 ngày qua</SelectItem>
+                  <SelectItem value="month">30 ngày qua</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Xuất dữ liệu</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
-        </div>
 
-        {/* Orders Table */}
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">Mã đơn</TableHead>
-                <TableHead
-                  className="cursor-pointer"
-                  onClick={() => handleSort("customer")}
-                >
-                  <div className="flex items-center">
-                    Khách hàng
-                    {getSortIcon("customer")}
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer"
-                  onClick={() => handleSort("date")}
-                >
-                  <div className="flex items-center">
-                    Ngày đặt
-                    {getSortIcon("date")}
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer"
-                  onClick={() => handleSort("total")}
-                >
-                  <div className="flex items-center">
-                    Tổng tiền
-                    {getSortIcon("total")}
-                  </div>
-                </TableHead>
-                <TableHead>Trạng thái đơn hàng</TableHead>
-                <TableHead>Trạng thái thanh toán</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrders.length === 0 ? (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="text-center py-10 text-muted-foreground"
+                  <TableHead className="w-[100px] text-center">
+                    Mã đơn
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer text-center"
+                    onClick={() => handleSort("customer")}
                   >
-                    Không tìm thấy đơn hàng nào
-                  </TableCell>
+                    <div className="flex items-center justify-center">
+                      Khách hàng
+                      {getSortIcon("customer")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer text-center"
+                    onClick={() => handleSort("date")}
+                  >
+                    <div className="flex items-center justify-center">
+                      Ngày đặt
+                      {getSortIcon("date")}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer text-center"
+                    onClick={() => handleSort("total")}
+                  >
+                    <div className="flex items-center justify-center">
+                      Tổng tiền
+                      {getSortIcon("total")}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Trạng thái đơn hàng
+                  </TableHead>
+                  <TableHead className="text-center">
+                    Trạng thái thanh toán
+                  </TableHead>
+                  <TableHead className="text-center">Thao tác</TableHead>
                 </TableRow>
-              ) : (
-                filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="group hover:bg-muted/50">
-                    <TableCell className="font-medium">{order.id}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span>{getUserName(order.customerId)}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {getUserEmail(order.customerId)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(order.date)}</TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(order.total)}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    <TableCell>
-                      {getPaymentStatusText(order.paymentStatus)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => viewOrderDetails(order)}
-                          className="opacity-70 group-hover:opacity-100"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-70 group-hover:opacity-100"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
-                            <DropdownMenuItem
-                              onClick={() => viewOrderDetails(order)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" /> Xem chi tiết
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => {
-                                viewOrderDetails(order);
-                                setTimeout(
-                                  () => handleStatusChange("processing"),
-                                  100
-                                );
-                              }}
-                              disabled={order.status !== "pending"}
-                            >
-                              <RefreshCw className="h-4 w-4 mr-2 text-blue-500" />{" "}
-                              Xử lý đơn hàng
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                viewOrderDetails(order);
-                                setTimeout(
-                                  () => handleStatusChange("shipped"),
-                                  100
-                                );
-                              }}
-                              disabled={order.status !== "processing"}
-                            >
-                              <Truck className="h-4 w-4 mr-2 text-purple-500" />{" "}
-                              Giao hàng
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => {
-                                viewOrderDetails(order);
-                                setTimeout(
-                                  () => handleStatusChange("delivered"),
-                                  100
-                                );
-                              }}
-                              disabled={order.status !== "shipped"}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2 text-green-500" />{" "}
-                              Xác nhận đã giao
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => {
-                                viewOrderDetails(order);
-                                setTimeout(
-                                  () => handleStatusChange("cancelled"),
-                                  100
-                                );
-                              }}
-                              disabled={
-                                order.status === "delivered" ||
-                                order.status === "cancelled"
-                              }
-                              className="text-red-500 focus:text-red-500"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" /> Hủy đơn hàng
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-10 text-muted-foreground"
+                    >
+                      Không tìm thấy đơn hàng nào
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-6">
-          <div className="text-sm text-gray-500">
-            Hiển thị {filteredOrders.length > 0 ? 1 : 0}-{filteredOrders.length}{" "}
-            của {filteredOrders.length} đơn hàng
+                ) : (
+                  filteredOrders.map((order) => (
+                    <TableRow
+                      key={order.id}
+                      className="group hover:bg-muted/50 text-center"
+                    >
+                      <TableCell className="font-medium text-center">
+                        {order.id}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center">
+                          <span>{getUserName(order.customerId)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {getUserEmail(order.customerId)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {formatDate(order.date)}
+                      </TableCell>
+                      <TableCell className="font-medium text-center">
+                        {formatCurrency(order.total)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {getStatusBadge(order.status)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {/* căn giữa nội dung trạng thái thanh toán */}
+                        <div className="flex justify-center items-center">
+                          {getPaymentStatusText(order.paymentStatus)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => viewOrderDetails(order)}
+                            className="opacity-70 group-hover:opacity-100"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="opacity-70 group-hover:opacity-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={() => viewOrderDetails(order)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" /> Xem chi tiết
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange("ĐANG XỬ LÝ", order.id)}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2 text-blue-500" /> Đang xử lý
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange("ĐANG GIAO", order.id)}
+                              >
+                                <Truck className="h-4 w-4 mr-2 text-purple-500" /> Đang giao hàng
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange("ĐÃ GIAO", order.id)}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2 text-green-500" /> Đã giao hàng
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleStatusChange("ĐÃ HỦY", order.id)}
+                                className="text-red-500 focus:text-red-500"
+                              >
+                                <XCircle className="h-4 w-4 mr-2" /> Hủy đơn hàng
+                                hàng
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
-          <nav className="flex items-center gap-1">
-            <Button variant="outline" size="icon" disabled>
-              &lt;
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="bg-pink-600 text-white"
-            >
-              1
-            </Button>
-            <Button variant="outline" size="icon">
-              &gt;
-            </Button>
-          </nav>
-        </div>
-      </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-500">
+              Hiển thị {filteredOrders.length > 0 ? 1 : 0}-
+              {filteredOrders.length} của {filteredOrders.length} đơn hàng
+            </div>
+            <nav className="flex items-center gap-1">
+              <Button variant="outline" size="icon" disabled>
+                &lt;
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-pink-600 text-white"
+              >
+                1
+              </Button>
+              <Button variant="outline" size="icon">
+                &gt;
+              </Button>
+            </nav>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* View Order Dialog */}
       <OrderDetailDialog

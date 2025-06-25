@@ -31,16 +31,24 @@ export const AddressService = {
     return response.data;
   },
 
-  // Lấy danh sách quận/huyện theo tỉnh
+  // Lấy tất cả quận/huyện (provinceCode = 0)
   async getDistrictsByProvince(provinceCode: number): Promise<District[]> {
+    if (provinceCode === 0) {
+      const response = await axios.get("https://provinces.open-api.vn/api/d/");
+      return response.data;
+    }
     const response = await axios.get(
       `https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`
     );
     return response.data.districts;
   },
 
-  // Lấy danh sách phường/xã theo quận
+  // Lấy tất cả phường/xã (districtCode = 0)
   async getWardsByDistrict(districtCode: number): Promise<Ward[]> {
+    if (districtCode === 0) {
+      const response = await axios.get("https://provinces.open-api.vn/api/w/");
+      return response.data;
+    }
     const response = await axios.get(
       `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`
     );

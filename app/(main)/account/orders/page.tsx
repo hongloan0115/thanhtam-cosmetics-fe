@@ -24,7 +24,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { OrderService } from "@/services/api/orders"; // Thêm import này
+import { OrderService } from "@/services/api/orders";
+import {
+  AddressService,
+  Province,
+  District,
+  Ward,
+} from "@/services/api/address";
+import { ProductService, Product } from "@/services/api/product";
+import {
+  PaymentMethodService,
+  PaymentMethod,
+} from "@/services/api/payment-method";
 
 interface OrderItem {
   id: number;
@@ -38,12 +49,20 @@ interface Order {
   id: string;
   date: string;
   status: string;
+  rawStatus: string; // Thêm trường này để lưu trạng thái gốc từ API
   total: number;
   items: OrderItem[];
-  shippingAddress: string;
+  shippingAddress: {
+    detail: string;
+    ward: string | number;
+    district: string | number;
+    province: string | number;
+  };
   paymentMethod: string;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
+  paymentStatus?: string;
+  note?: string;
+  recipientName?: string;
+  recipientPhone?: string;
 }
 
 // Bỏ kiểm tra đăng nhập trong trang orders
@@ -55,45 +74,106 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
   useEffect(() => {
-    // Nếu chưa có user, không gọi API
+    // Lấy danh sách tỉnh/thành phố, quận/huyện, phường/xã
+    AddressService.getProvinces().then(setProvinces);
+    AddressService.getDistrictsByProvince(0).then(setDistricts);
+    AddressService.getWardsByDistrict(0).then(setWards);
+
+    // Lấy tất cả sản phẩm để map hình ảnh
+    ProductService.getAll().then(setProducts);
+
+    // Lấy danh sách phương thức thanh toán
+    PaymentMethodService.getAll().then(setPaymentMethods);
+  }, []);
+
+  useEffect(() => {
     if (!user?.maNguoiDung) return;
 
-    // Lấy danh sách đơn hàng từ API
     OrderService.getOrdersByUser(user.maNguoiDung)
       .then((data) => {
-        // Map dữ liệu API sang Order[]
-        const mappedOrders: Order[] = (data || []).map((order: any) => ({
-          id: order.maDonHang?.toString() ?? "",
-          date: order.ngayDat
-            ? new Date(order.ngayDat).toLocaleDateString("vi-VN")
-            : "",
-          status: mapStatus(order.trangThai),
-          total: Number(order.tongTien) || 0,
-          items: (order.chiTietDonHang || []).map((item: any) => ({
-            id: item.maSanPham,
-            name: item.tenSanPham || "Sản phẩm",
-            price: Number(item.donGia) || 0,
-            image: item.hinhAnh || "/placeholder.svg?height=100&width=100",
-            quantity: item.soLuong || 1,
-          })),
-          shippingAddress: [
-            order.diaChiChiTiet,
-            order.phuongXa,
-            order.quanHuyen,
-            order.tinhThanh,
-          ]
-            .filter(Boolean)
-            .join(", "),
-          paymentMethod: mapPaymentMethod(order.maPhuongThuc),
-          trackingNumber: order.trackingNumber || "",
-          estimatedDelivery: order.estimatedDelivery || "",
-        }));
+        const mappedOrders: Order[] = (data || []).map((order: any) => {
+          // Map shipping address
+          const shippingAddress = {
+            detail: order.diaChiChiTiet || "",
+            ward: order.phuongXa || "",
+            district: order.quanHuyen || "",
+            province: order.tinhThanh || "",
+          };
+
+          // Map payment method
+          let paymentMethod = "Không xác định";
+          if (
+            typeof order.maPhuongThuc === "number" &&
+            paymentMethods.length > 0
+          ) {
+            const found = paymentMethods.find(
+              (pm) => pm.maPhuongThuc === order.maPhuongThuc
+            );
+            paymentMethod = found?.tenPhuongThuc || paymentMethod;
+          }
+
+          // Map trạng thái thanh toán
+          const paymentStatus = order.trangThaiThanhToan || "";
+
+          // Map ghi chú
+          const note = order.ghiChu || "";
+
+          // Map người nhận
+          const recipientName = order.hoTenNguoiNhan || "";
+          const recipientPhone = order.soDienThoaiNguoiNhan || "";
+
+          // Map sản phẩm
+          const items: OrderItem[] = (order.chiTietDonHang || []).map(
+            (item: any) => {
+              const product = item.sanPham;
+              let image = "/placeholder.svg?height=100&width=100";
+              if (product && product.hinhAnh && product.hinhAnh.length > 0) {
+                const mainImg = product.hinhAnh.find(
+                  (img: any) => img.laAnhChinh === 1
+                );
+                image =
+                  mainImg?.duongDan || product.hinhAnh[0].duongDan || image;
+              }
+              return {
+                id: item.maSanPham,
+                name: product?.tenSanPham || "Sản phẩm",
+                price: Number(item.donGia) || 0,
+                image,
+                quantity: item.soLuong || 1,
+              };
+            }
+          );
+
+          return {
+            id: order.maDonHang?.toString() ?? "",
+            date: order.ngayDat
+              ? new Date(order.ngayDat).toLocaleDateString("vi-VN")
+              : "",
+            status: mapStatus(order.trangThai),
+            rawStatus: order.trangThai, // Lưu trạng thái gốc
+            total: Number(order.tongTien) || 0,
+            items,
+            shippingAddress,
+            paymentMethod,
+            paymentStatus,
+            note,
+            recipientName,
+            recipientPhone,
+          };
+        });
         setOrders(mappedOrders);
       })
       .catch(() => setOrders([]));
-  }, [user]);
+  }, [user, products, paymentMethods]);
 
   // Map trạng thái từ API sang tiếng Việt hoặc giữ nguyên nếu đã đúng
   function mapStatus(status: string) {
@@ -105,29 +185,101 @@ export default function OrdersPage() {
       case "HOÀN THÀNH":
         return "Đã giao hàng";
       case "ĐÃ HỦY":
+      case "ĐÃ BỊ HUỶ":
         return "Đã hủy";
       default:
         return status || "Đang xử lý";
     }
   }
 
-  // Map phương thức thanh toán từ mã sang tên
-  function mapPaymentMethod(maPhuongThuc: number) {
-    switch (maPhuongThuc) {
-      case 1:
-        return "Thanh toán khi nhận hàng";
-      case 2:
-        return "Chuyển khoản ngân hàng";
-      case 3:
-        return "Thẻ tín dụng";
-      default:
-        return "Không xác định";
-    }
-  }
-
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
     setIsDialogOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    try {
+      await OrderService.cancelOrder(selectedOrder.id); // Gọi API hủy đơn hàng
+      setIsCancelConfirmOpen(false);
+      setIsDialogOpen(false);
+      // Reload lại danh sách đơn hàng
+      OrderService.getOrdersByUser(user.maNguoiDung).then((data) => {
+        const mappedOrders: Order[] = (data || []).map((order: any) => {
+          // Map shipping address
+          const shippingAddress = {
+            detail: order.diaChiChiTiet || "",
+            ward: order.phuongXa || "",
+            district: order.quanHuyen || "",
+            province: order.tinhThanh || "",
+          };
+
+          // Map payment method
+          let paymentMethod = "Không xác định";
+          if (
+            typeof order.maPhuongThuc === "number" &&
+            paymentMethods.length > 0
+          ) {
+            const found = paymentMethods.find(
+              (pm) => pm.maPhuongThuc === order.maPhuongThuc
+            );
+            paymentMethod = found?.tenPhuongThuc || paymentMethod;
+          }
+
+          // Map trạng thái thanh toán
+          const paymentStatus = order.trangThaiThanhToan || "";
+
+          // Map ghi chú
+          const note = order.ghiChu || "";
+
+          // Map người nhận
+          const recipientName = order.hoTenNguoiNhan || "";
+          const recipientPhone = order.soDienThoaiNguoiNhan || "";
+
+          // Map sản phẩm
+          const items: OrderItem[] = (order.chiTietDonHang || []).map(
+            (item: any) => {
+              const product = item.sanPham;
+              let image = "/placeholder.svg?height=100&width=100";
+              if (product && product.hinhAnh && product.hinhAnh.length > 0) {
+                const mainImg = product.hinhAnh.find(
+                  (img: any) => img.laAnhChinh === 1
+                );
+                image =
+                  mainImg?.duongDan || product.hinhAnh[0].duongDan || image;
+              }
+              return {
+                id: item.maSanPham,
+                name: product?.tenSanPham || "Sản phẩm",
+                price: Number(item.donGia) || 0,
+                image,
+                quantity: item.soLuong || 1,
+              };
+            }
+          );
+
+          return {
+            id: order.maDonHang?.toString() ?? "",
+            date: order.ngayDat
+              ? new Date(order.ngayDat).toLocaleDateString("vi-VN")
+              : "",
+            status: mapStatus(order.trangThai),
+            rawStatus: order.trangThai, // Lưu trạng thái gốc
+            total: Number(order.tongTien) || 0,
+            items,
+            shippingAddress,
+            paymentMethod,
+            paymentStatus,
+            note,
+            recipientName,
+            recipientPhone,
+          };
+        });
+        setOrders(mappedOrders);
+      });
+    } catch (e) {
+      alert("Hủy đơn hàng thất bại. Vui lòng thử lại!");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -160,19 +312,22 @@ export default function OrdersPage() {
     }
   };
 
+  // Lọc đơn hàng theo trạng thái gốc từ API
   const filteredOrders =
     activeTab === "all"
       ? orders
       : orders.filter((order) => {
           switch (activeTab) {
             case "processing":
-              return order.status === "Đang xử lý";
+              return order.rawStatus === "CHỜ XÁC NHẬN";
             case "shipping":
-              return order.status === "Đang vận chuyển";
+              return order.rawStatus === "ĐANG GIAO";
             case "delivered":
-              return order.status === "Đã giao hàng";
+              return order.rawStatus === "HOÀN THÀNH";
             case "cancelled":
-              return order.status === "Đã hủy";
+              return (
+                order.rawStatus === "ĐÃ HỦY" || order.rawStatus === "ĐÃ BỊ HUỶ"
+              );
             default:
               return true;
           }
@@ -188,6 +343,20 @@ export default function OrdersPage() {
         Vui lòng đăng nhập để xem đơn hàng của bạn.
       </div>
     );
+  }
+
+  // Hàm lấy tên từ code
+  function getProvinceName(code: number | string) {
+    const c = Number(code);
+    return provinces.find((p) => p.code === c)?.name || code;
+  }
+  function getDistrictName(code: number | string) {
+    const c = Number(code);
+    return districts.find((d) => d.code === c)?.name || code;
+  }
+  function getWardName(code: number | string) {
+    const c = Number(code);
+    return wards.find((w) => w.code === c)?.name || code;
   }
 
   return (
@@ -316,7 +485,29 @@ export default function OrdersPage() {
                 <div>
                   <h3 className="font-medium mb-2">Thông tin giao hàng</h3>
                   <p className="text-sm text-gray-600 mb-1">
-                    {selectedOrder.shippingAddress}
+                    <span className="font-medium">Người nhận:</span>{" "}
+                    {selectedOrder.recipientName}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-medium">Số điện thoại:</span>{" "}
+                    {selectedOrder.recipientPhone}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-medium">Địa chỉ giao hàng:</span>{" "}
+                    {selectedOrder.shippingAddress.detail}
+                    {selectedOrder.shippingAddress.ward
+                      ? `, ${getWardName(selectedOrder.shippingAddress.ward)}`
+                      : ""}
+                    {selectedOrder.shippingAddress.district
+                      ? `, ${getDistrictName(
+                          selectedOrder.shippingAddress.district
+                        )}`
+                      : ""}
+                    {selectedOrder.shippingAddress.province
+                      ? `, ${getProvinceName(
+                          selectedOrder.shippingAddress.province
+                        )}`
+                      : ""}
                   </p>
                   {selectedOrder.trackingNumber && (
                     <p className="text-sm text-gray-600 mb-1">
@@ -330,13 +521,31 @@ export default function OrdersPage() {
                       {selectedOrder.estimatedDelivery}
                     </p>
                   )}
+                  {selectedOrder.note && (
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Ghi chú:</span>{" "}
+                      {selectedOrder.note}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <h3 className="font-medium mb-2">Thông tin thanh toán</h3>
                   <p className="text-sm text-gray-600 mb-1">
                     <span className="font-medium">Phương thức thanh toán:</span>{" "}
-                    {selectedOrder.paymentMethod}
+                    {
+                      // Hiển thị mô tả nếu có, nếu không thì hiển thị tên phương thức
+                      (() => {
+                        const pm = paymentMethods.find(
+                          (p) => p.tenPhuongThuc === selectedOrder.paymentMethod
+                        );
+                        return pm?.moTa || selectedOrder.paymentMethod;
+                      })()
+                    }
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-medium">Trạng thái thanh toán:</span>{" "}
+                    {selectedOrder.paymentStatus || "Không xác định"}
                   </p>
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Tổng tiền:</span>{" "}
@@ -381,8 +590,45 @@ export default function OrdersPage() {
                     </Button>
                   </div>
                 )}
+
+              {/* Nút hủy đơn hàng */}
+              {selectedOrder.status === "Đang xử lý" && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setIsCancelConfirmOpen(true)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Hủy đơn hàng
+                  </Button>
+                </div>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận hủy đơn hàng */}
+      <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận hủy đơn hàng</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn hủy đơn hàng #{selectedOrder?.id} không?
+              Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsCancelConfirmOpen(false)}
+            >
+              Không
+            </Button>
+            <Button variant="destructive" onClick={handleCancelOrder}>
+              Xác nhận hủy
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </AccountLayout>

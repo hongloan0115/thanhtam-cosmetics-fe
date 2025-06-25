@@ -10,7 +10,19 @@ export const AuthService = {
       return response.data;
     } catch (error: any) {
       if (error.response && error.response.status === 400) {
+        if (error.response.data?.detail === "Người dùng không tồn tại.") {
+          throw { message: "Người dùng không tồn tại." };
+        }
+        if (error.response.data?.detail === "Tài khoản đã bị khóa") {
+          throw { message: "Tài khoản đã bị khóa." };
+        }
         throw { message: "Tên đăng nhập hoặc mật khẩu không đúng." };
+      }
+      // Bổ sung xử lý status 403 (backend trả về khi tài khoản bị khóa)
+      if (error.response && error.response.status === 403) {
+        if (error.response.data?.detail === "Tài khoản đã bị khóa") {
+          throw { message: "Tài khoản đã bị khóa." };
+        }
       }
       throw {
         message: error.message || "Đã xảy ra lỗi. Vui lòng thử lại sau.",
@@ -24,7 +36,11 @@ export const AuthService = {
       password,
       role,
     });
-    return response.data;
+    // Trả về message thành công
+    return {
+      message: "Đăng ký thành công. Vui lòng kiểm tra email để xác thực.",
+      ...response.data,
+    };
   },
 
   async getCurrentUser() {

@@ -2,7 +2,7 @@ import axiosInstance from "@/utils/axios-instance";
 
 export interface Image {
   maHinhAnh: number; // sửa lại từ maAnh -> maHinhAnh
-  duongDanAnh: string;
+  duongDan: string;
   maAnhClound: string;
   moTa: string;
   laAnhChinh: number;
@@ -98,8 +98,9 @@ export const ProductService = {
       formData.append("soLuongTonKho", String(data.soLuongTonKho));
     if (data.giamGia !== undefined)
       formData.append("giamGia", String(data.giamGia));
-    if (data.trangThai !== undefined)
-      formData.append("trangThai", data.trangThai); // Đảm bảo là chuỗi tiếng Việt
+    // Không append trangThai khi cập nhật, trạng thái do backend xác định
+    // if (data.trangThai !== undefined)
+    //   formData.append("trangThai", data.trangThai);
     if (data.maDanhMuc !== undefined && data.maDanhMuc !== null)
       formData.append("maDanhMuc", String(data.maDanhMuc));
     if (data.maThuongHieu !== undefined && data.maThuongHieu !== null)
@@ -139,10 +140,21 @@ export const ProductService = {
     giaMin?: number;
     giaMax?: number;
     trangThai?: boolean;
-    thuongHieu?: string;
+    thuongHieu?: string[]; // sửa lại thành mảng string
   }): Promise<Product[]> {
     const response = await axiosInstance.get("/products/filter", {
       params,
+      paramsSerializer: (params) => {
+        const searchParams = new URLSearchParams();
+        Object.entries(params).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            value.forEach((v) => searchParams.append(key, v));
+          } else if (value !== undefined && value !== null) {
+            searchParams.append(key, String(value));
+          }
+        });
+        return searchParams.toString();
+      },
     });
     return response.data;
   },

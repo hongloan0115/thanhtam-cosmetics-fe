@@ -6,6 +6,14 @@ export interface Role {
   moTa?: string;
 }
 
+export interface CartItem {
+  // ...define các trường cần thiết cho CartItemOut từ backend...
+  // Ví dụ:
+  // maSanPham: number;
+  // soLuong: number;
+  // ... (bổ sung nếu cần)
+}
+
 export interface User {
   maNguoiDung: number;
   tenNguoiDung?: string;
@@ -15,6 +23,8 @@ export interface User {
   daXacThucEmail: boolean;
   trangThai: boolean;
   vaiTro: Role[];
+  gioHang: CartItem[]; // bổ sung trường này
+  anhDaiDien?: string; // bổ sung trường này
 }
 
 export const UserService = {
@@ -60,6 +70,13 @@ export const UserService = {
 
   async delete(id: number | string): Promise<User> {
     const response = await axiosInstance.delete(`/users/${id}`);
+    return response.data;
+  },
+
+  async updateStatus(id: number | string, trangThai: boolean): Promise<User> {
+    const response = await axiosInstance.patch(`/users/${id}/status`, {
+      trangThai,
+    });
     return response.data;
   },
 };

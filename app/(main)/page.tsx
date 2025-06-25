@@ -302,7 +302,7 @@ export default function Home() {
                         price: product.giaBan,
                         image:
                           product.hinhAnh?.find((img) => img.laAnhChinh)
-                            ?.duongDanAnh ||
+                            ?.duongDan ||
                           "/placeholder.svg?height=300&width=300",
                         rating: 0,
                         reviewCount: 0,

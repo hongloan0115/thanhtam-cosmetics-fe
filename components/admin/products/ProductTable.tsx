@@ -72,7 +72,6 @@ export default function ProductTable({
               </div>
             </TableHead>
             <TableHead className="text-center">Danh mục</TableHead>
-            <TableHead className="text-center">Thương hiệu</TableHead>
             <TableHead className="text-center">
               <div
                 className="flex items-center justify-center cursor-pointer"
@@ -129,9 +128,9 @@ export default function ProductTable({
                     <img
                       src={
                         product.images?.[0]?.duongDan ||
-                        product.images?.[0]?.duongDanAnh ||
+                        product.images?.[0]?.duongDan ||
                         product.hinhAnh?.[0]?.duongDan ||
-                        product.hinhAnh?.[0]?.duongDanAnh ||
+                        product.hinhAnh?.[0]?.duongDan ||
                         "/placeholder.svg?height=40&width=40"
                       }
                       alt={product.tenSanPham}
@@ -154,10 +153,6 @@ export default function ProductTable({
                 </TableCell>
                 <TableCell className="text-center">
                   {categories.find((cat: any) => cat.id === product.category)
-                    ?.name || ""}
-                </TableCell>
-                <TableCell className="text-center">
-                  {brands.find((brand: any) => brand.id === product.brand)
                     ?.name || ""}
                 </TableCell>
                 <TableCell className="text-right font-medium text-center">

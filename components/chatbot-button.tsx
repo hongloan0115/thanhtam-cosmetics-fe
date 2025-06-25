@@ -1,64 +1,77 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { MessageCircle, X, Send, User, Bot, ArrowRight, CheckCircle2, Clock } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Avatar } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { formatCurrency } from "@/lib/utils"
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  MessageCircle,
+  X,
+  Send,
+  User,
+  Bot,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Avatar } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatCurrency } from "@/lib/utils";
+import Link from "next/link"; // Thêm nếu dùng Next.js, nếu không thì dùng thẻ <a>
 
 // Định nghĩa các loại tin nhắn
-type MessageStatus = "sending" | "sent" | "received" | "read"
-type MessageSender = "user" | "bot" | "agent"
+type MessageStatus = "sending" | "sent" | "received" | "read";
+type MessageSender = "user" | "bot" | "agent";
 
 interface QuickReply {
-  id: string
-  text: string
-  action: string
+  id: string;
+  text: string;
+  action: string;
 }
 
 interface ProductInfo {
-  id: number
-  name: string
-  price: number
-  image: string
+  id: number;
+  name: string;
+  price: number;
+  image: string;
 }
 
 interface Message {
-  id: string
-  text: string
-  sender: MessageSender
-  timestamp: Date
-  status: MessageStatus
-  quickReplies?: QuickReply[]
-  product?: ProductInfo
+  id: string;
+  text: string;
+  sender: MessageSender;
+  timestamp: Date;
+  status: MessageStatus;
+  quickReplies?: QuickReply[];
+  product?: ProductInfo;
+  uniqueKey?: string; // Thêm trường này để đảm bảo key là duy nhất
 }
 
 export default function ChatbotButton() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [input, setInput] = useState("")
-  const [messages, setMessages] = useState<Message[]>([])
-  const [isTyping, setIsTyping] = useState(false)
-  const [isAgentMode, setIsAgentMode] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isAgentMode, setIsAgentMode] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Tải lịch sử chat từ localStorage khi component được mount
   useEffect(() => {
-    const savedMessages = localStorage.getItem("chatHistory")
+    const savedMessages = localStorage.getItem("chatHistory");
     if (savedMessages) {
       try {
         // Chuyển đổi chuỗi timestamp thành đối tượng Date
         const parsedMessages = JSON.parse(savedMessages).map((msg: any) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
-        }))
-        setMessages(parsedMessages)
+        }));
+        setMessages(parsedMessages);
       } catch (error) {
-        console.error("Lỗi khi phân tích lịch sử chat:", error)
+        console.error("Lỗi khi phân tích lịch sử chat:", error);
       }
     } else {
       // Tin nhắn chào mừng mặc định nếu không có lịch sử
@@ -73,158 +86,122 @@ export default function ChatbotButton() {
           { id: "order", text: "📦 Kiểm tra đơn hàng", action: "order" },
           { id: "support", text: "💬 Gặp nhân viên hỗ trợ", action: "support" },
         ],
-      }
-      setMessages([welcomeMessage])
+        uniqueKey: createUniqueKey(),
+      };
+      setMessages([welcomeMessage]);
     }
-  }, [])
+  }, []);
 
   // Lưu tin nhắn vào localStorage khi messages thay đổi
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem("chatHistory", JSON.stringify(messages))
+      localStorage.setItem("chatHistory", JSON.stringify(messages));
     }
-  }, [messages])
+  }, [messages]);
 
   // Cuộn xuống tin nhắn mới nhất
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Khởi tạo WebSocket khi mở chat
+  useEffect(() => {
+    if (isOpen && !ws) {
+      const socket = new WebSocket("ws://localhost:8000/api/ws/chat");
+      setWs(socket);
+
+      socket.onopen = () => setWsConnected(true);
+      socket.onclose = () => setWsConnected(false);
+      socket.onerror = () => setWsConnected(false);
+
+      socket.onmessage = (event) => {
+        setIsTyping(false);
+        // Mỗi phản hồi là 1 message string, có thể nhận nhiều lần cho 1 câu hỏi
+        const botMessage: Message = {
+          id: Date.now().toString(),
+          text: event.data,
+          sender: "bot",
+          timestamp: new Date(),
+          status: "received",
+          uniqueKey: createUniqueKey(),
+        };
+        setMessages((prev) => [...prev, botMessage]);
+      };
+    }
+    // Đóng ws khi đóng chat
+    if (!isOpen && ws) {
+      ws.close();
+      setWs(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const toggleChat = () => {
-    setIsOpen(!isOpen)
-  }
+    setIsOpen(!isOpen);
+  };
 
   const handleSend = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
+    e.preventDefault();
+    if (!input.trim()) return;
 
-    // Thêm tin nhắn của người dùng
     const userMessage: Message = {
       id: Date.now().toString(),
       text: input,
       sender: "user",
       timestamp: new Date(),
       status: "sending",
-    }
+      uniqueKey: createUniqueKey(),
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
 
-    // Cập nhật trạng thái tin nhắn thành "sent" sau 500ms
     setTimeout(() => {
-      setMessages((prev) => prev.map((msg) => (msg.id === userMessage.id ? { ...msg, status: "sent" } : msg)))
-    }, 500)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === userMessage.id ? { ...msg, status: "sent" } : msg
+        )
+      );
+    }, 500);
 
-    // Hiển thị "đang nhập" cho bot/agent
-    setIsTyping(true)
-
-    // Xử lý phản hồi
-    setTimeout(() => {
-      setIsTyping(false)
-
-      if (isAgentMode) {
-        // Phản hồi từ nhân viên
+    // Nếu đang ở agent mode thì xử lý như cũ (giả lập)
+    if (isAgentMode) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
         const agentResponse: Message = {
           id: Date.now().toString(),
           text: "Cảm ơn bạn đã liên hệ. Tôi là Hương, nhân viên tư vấn của Thanh Tâm Cosmetics. Tôi có thể giúp gì cho bạn ạ?",
           sender: "agent",
           timestamp: new Date(),
           status: "received",
-        }
-        setMessages((prev) => [...prev, agentResponse])
-      } else {
-        // Xử lý phản hồi từ chatbot dựa trên input
-        handleBotResponse(input.toLowerCase())
-      }
-    }, 1500)
-  }
-
-  const handleBotResponse = (userInput: string) => {
-    let botResponse: Message
-
-    // Xử lý các từ khóa phổ biến
-    if (userInput.includes("sản phẩm") || userInput.includes("mua") || userInput.includes("tìm")) {
-      // Hiển thị sản phẩm gợi ý
-      botResponse = {
-        id: Date.now().toString(),
-        text: "Đây là một số sản phẩm phổ biến của chúng tôi:",
-        sender: "bot",
-        timestamp: new Date(),
-        status: "received",
-        product: {
-          id: 1,
-          name: "Kem dưỡng ẩm Thanh Tâm",
-          price: 450000,
-          image: "/placeholder.svg?height=100&width=100",
-        },
-        quickReplies: [
-          { id: "more", text: "Xem thêm sản phẩm", action: "more_products" },
-          { id: "details", text: "Chi tiết sản phẩm", action: "product_details" },
-        ],
-      }
-    } else if (userInput.includes("đơn hàng") || userInput.includes("kiểm tra") || userInput.includes("theo dõi")) {
-      botResponse = {
-        id: Date.now().toString(),
-        text: "Để kiểm tra đơn hàng, vui lòng cung cấp mã đơn hàng hoặc đăng nhập vào tài khoản của bạn.",
-        sender: "bot",
-        timestamp: new Date(),
-        status: "received",
-        quickReplies: [
-          { id: "login", text: "Đăng nhập", action: "login" },
-          { id: "order_id", text: "Nhập mã đơn hàng", action: "enter_order_id" },
-        ],
-      }
-    } else if (userInput.includes("nhân viên") || userInput.includes("tư vấn") || userInput.includes("hỗ trợ")) {
-      botResponse = {
-        id: Date.now().toString(),
-        text: "Tôi sẽ kết nối bạn với nhân viên tư vấn. Vui lòng đợi trong giây lát.",
-        sender: "bot",
-        timestamp: new Date(),
-        status: "received",
-      }
-
-      // Chuyển sang chế độ nhân viên sau 2 giây
-      setTimeout(() => {
-        setIsAgentMode(true)
-        const agentMessage: Message = {
-          id: Date.now().toString(),
-          text: "Xin chào! Tôi là Hương, nhân viên tư vấn của Thanh Tâm Cosmetics. Tôi có thể giúp gì cho bạn ạ?",
-          sender: "agent",
-          timestamp: new Date(),
-          status: "received",
-        }
-        setMessages((prev) => [...prev, agentMessage])
-      }, 2000)
-    } else if (userInput.includes("giá") || userInput.includes("khuyến mãi") || userInput.includes("ưu đãi")) {
-      botResponse = {
-        id: Date.now().toString(),
-        text: "Hiện tại chúng tôi đang có chương trình khuyến mãi giảm 20% cho tất cả sản phẩm mới. Bạn có muốn xem các sản phẩm đang khuyến mãi không?",
-        sender: "bot",
-        timestamp: new Date(),
-        status: "received",
-        quickReplies: [
-          { id: "promo", text: "Xem sản phẩm khuyến mãi", action: "view_promotions" },
-          { id: "no_thanks", text: "Không, cảm ơn", action: "no_thanks" },
-        ],
-      }
-    } else {
-      // Phản hồi mặc định
-      botResponse = {
-        id: Date.now().toString(),
-        text: "Cảm ơn bạn đã liên hệ. Bạn có thể cho tôi biết thêm về nhu cầu của bạn để tôi có thể hỗ trợ tốt hơn?",
-        sender: "bot",
-        timestamp: new Date(),
-        status: "received",
-        quickReplies: [
-          { id: "search", text: "🔍 Tìm kiếm sản phẩm", action: "search" },
-          { id: "order", text: "📦 Kiểm tra đơn hàng", action: "order" },
-          { id: "support", text: "💬 Gặp nhân viên hỗ trợ", action: "support" },
-        ],
-      }
+          uniqueKey: createUniqueKey(),
+        };
+        setMessages((prev) => [...prev, agentResponse]);
+      }, 1500);
+      return;
     }
 
-    setMessages((prev) => [...prev, botResponse])
-  }
+    // Gửi message tới backend qua WebSocket
+    if (ws && wsConnected) {
+      setIsTyping(true);
+      ws.send(input);
+    } else {
+      // Nếu ws chưa sẵn sàng, chỉ báo lỗi
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          text: "Không thể kết nối tới máy chủ chatbot. Vui lòng thử lại sau.",
+          sender: "bot",
+          timestamp: new Date(),
+          status: "received",
+          uniqueKey: createUniqueKey(), // ensure uniqueKey is always set
+        },
+      ]);
+    }
+  };
 
   const handleQuickReply = (action: string, text: string) => {
     // Thêm lựa chọn của người dùng vào chat
@@ -234,76 +211,52 @@ export default function ChatbotButton() {
       sender: "user",
       timestamp: new Date(),
       status: "sent",
+      uniqueKey: createUniqueKey(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    // Nếu đang ở agent mode thì xử lý như cũ
+    if (isAgentMode) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
+        const agentResponse: Message = {
+          id: Date.now().toString(),
+          text: "Cảm ơn bạn đã liên hệ. Tôi là Hương, nhân viên tư vấn của Thanh Tâm Cosmetics. Tôi có thể giúp gì cho bạn ạ?",
+          sender: "agent",
+          timestamp: new Date(),
+          status: "received",
+          uniqueKey: createUniqueKey(),
+        };
+        setMessages((prev) => [...prev, agentResponse]);
+      }, 1500);
+      return;
     }
 
-    setMessages((prev) => [...prev, userMessage])
-
-    // Hiển thị "đang nhập" cho bot
-    setIsTyping(true)
-
-    // Xử lý hành động dựa trên nút được nhấn
-    setTimeout(() => {
-      setIsTyping(false)
-
-      switch (action) {
-        case "search":
-          handleBotResponse("tìm sản phẩm")
-          break
-        case "order":
-          handleBotResponse("kiểm tra đơn hàng")
-          break
-        case "support":
-          handleBotResponse("gặp nhân viên hỗ trợ")
-          break
-        case "more_products":
-          const productsResponse: Message = {
-            id: Date.now().toString(),
-            text: "Bạn có thể xem tất cả sản phẩm của chúng tôi tại trang sản phẩm:",
-            sender: "bot",
-            timestamp: new Date(),
-            status: "received",
-            quickReplies: [{ id: "go_products", text: "Đi đến trang sản phẩm", action: "go_to_products" }],
-          }
-          setMessages((prev) => [...prev, productsResponse])
-          break
-        case "view_promotions":
-          const promoResponse: Message = {
-            id: Date.now().toString(),
-            text: "Đây là một số sản phẩm đang được khuyến mãi:",
-            sender: "bot",
-            timestamp: new Date(),
-            status: "received",
-            product: {
-              id: 3,
-              name: "Phấn nước Thanh Tâm",
-              price: 550000,
-              image: "/placeholder.svg?height=100&width=100",
-            },
-          }
-          setMessages((prev) => [...prev, promoResponse])
-          break
-        case "login":
-        case "go_to_products":
-          // Trong thực tế, bạn sẽ chuyển hướng người dùng đến trang tương ứng
-          const redirectResponse: Message = {
-            id: Date.now().toString(),
-            text: `Đang chuyển hướng bạn đến trang ${action === "login" ? "đăng nhập" : "sản phẩm"}...`,
-            sender: "bot",
-            timestamp: new Date(),
-            status: "received",
-          }
-          setMessages((prev) => [...prev, redirectResponse])
-          break
-        default:
-          handleBotResponse(text)
-      }
-    }, 1000)
-  }
+    // Gửi action/text tới backend qua WebSocket
+    if (ws && wsConnected) {
+      setIsTyping(true);
+      ws.send(text);
+    } else {
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          text: "Không thể kết nối tới máy chủ chatbot. Vui lòng thử lại sau.",
+          sender: "bot",
+          timestamp: new Date(),
+          status: "received",
+          uniqueKey: createUniqueKey(), // ensure uniqueKey is always set
+        },
+      ]);
+    }
+  };
 
   const resetChat = () => {
     // Xóa lịch sử chat và bắt đầu lại
-    localStorage.removeItem("chatHistory")
-    setIsAgentMode(false)
+    localStorage.removeItem("chatHistory");
+    setIsAgentMode(false);
 
     const welcomeMessage: Message = {
       id: Date.now().toString(),
@@ -316,25 +269,53 @@ export default function ChatbotButton() {
         { id: "order", text: "📦 Kiểm tra đơn hàng", action: "order" },
         { id: "support", text: "💬 Gặp nhân viên hỗ trợ", action: "support" },
       ],
-    }
+      uniqueKey: createUniqueKey(),
+    };
 
-    setMessages([welcomeMessage])
-  }
+    setMessages([welcomeMessage]);
+  };
 
   // Hiển thị trạng thái tin nhắn
   const renderMessageStatus = (status: MessageStatus) => {
     switch (status) {
       case "sending":
-        return <Clock className="h-3 w-3 text-gray-400" />
+        return <Clock className="h-3 w-3 text-gray-400" />;
       case "sent":
-        return <CheckCircle2 className="h-3 w-3 text-gray-400" />
+        return <CheckCircle2 className="h-3 w-3 text-gray-400" />;
       case "received":
-        return <CheckCircle2 className="h-3 w-3 text-blue-500" />
+        return <CheckCircle2 className="h-3 w-3 text-blue-500" />;
       case "read":
-        return <CheckCircle2 className="h-3 w-3 text-green-500" />
+        return <CheckCircle2 className="h-3 w-3 text-green-500" />;
       default:
-        return null
+        return null;
     }
+  };
+
+  // Hàm tạo unique key cho message
+  const createUniqueKey = () =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Date.now().toString() + Math.random().toString(36).slice(2);
+
+  // Hàm parse message dạng sản phẩm
+  function parseProductMessage(text: string) {
+    // Ví dụ: 📦 Sản phẩm 01 💰 Giá: 120,000đ
+    // 🖼️ Hình ảnh: ... (có thể có hoặc không)
+    // 🔗 Xem chi tiết: /products/8
+    const nameMatch = text.match(/📦\s*([^\n💰]+)/);
+    const priceMatch = text.match(/💰\s*Giá:\s*([0-9.,]+)đ/);
+    const linkMatch = text.match(/🔗\s*Xem chi tiết:\s*(\/products\/\d+)/);
+    const imgMatch = text.match(/🖼️\s*Hình ảnh:\s*([^\n]+)/);
+
+    if (nameMatch && priceMatch && linkMatch) {
+      return {
+        name: nameMatch[1].trim(),
+        price: priceMatch[1].replace(/,/g, "").trim(),
+        link: linkMatch[1].trim(),
+        image: imgMatch ? imgMatch[1].trim() : null,
+      };
+    }
+    return null;
   }
 
   return (
@@ -343,7 +324,11 @@ export default function ChatbotButton() {
         onClick={toggleChat}
         className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg bg-pink-600 hover:bg-pink-700 z-50"
       >
-        {isOpen ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+        {isOpen ? (
+          <X className="h-6 w-6" />
+        ) : (
+          <MessageCircle className="h-6 w-6" />
+        )}
       </Button>
 
       {isOpen && (
@@ -353,102 +338,186 @@ export default function ChatbotButton() {
               <div>
                 <h3 className="font-medium">Trợ lý Thanh Tâm</h3>
                 <p className="text-sm opacity-90">
-                  {isAgentMode ? "Đang nói chuyện với nhân viên" : "Hỗ trợ trực tuyến 24/7"}
+                  {isAgentMode
+                    ? "Đang nói chuyện với nhân viên"
+                    : "Hỗ trợ trực tuyến 24/7"}
                 </p>
               </div>
               <TabsList className="bg-pink-700">
-                <TabsTrigger value="chat" className="text-white data-[state=active]:bg-pink-800">
+                <TabsTrigger
+                  value="chat"
+                  className="text-white data-[state=active]:bg-pink-800"
+                >
                   Chat
                 </TabsTrigger>
-                <TabsTrigger value="faq" className="text-white data-[state=active]:bg-pink-800">
+                <TabsTrigger
+                  value="faq"
+                  className="text-white data-[state=active]:bg-pink-800"
+                >
                   FAQ
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="chat" className="flex-1 flex flex-col p-0 m-0 overflow-hidden">
+            <TabsContent
+              value="chat"
+              className="flex-1 flex flex-col p-0 m-0 overflow-hidden"
+            >
               <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3">
-                {messages.map((msg) => (
-                  <div key={msg.id} className="flex flex-col">
-                    <div
-                      className={`flex items-start gap-2 ${msg.sender !== "user" ? "flex-row" : "flex-row-reverse"}`}
-                    >
-                      {msg.sender === "user" ? (
-                        <Avatar className="h-8 w-8 bg-pink-100">
-                          <User className="h-4 w-4 text-pink-600" />
-                        </Avatar>
-                      ) : msg.sender === "agent" ? (
-                        <Avatar className="h-8 w-8 bg-blue-100">
-                          <User className="h-4 w-4 text-blue-600" />
-                        </Avatar>
-                      ) : (
-                        <Avatar className="h-8 w-8 bg-gray-100">
-                          <Bot className="h-4 w-4 text-gray-600" />
-                        </Avatar>
-                      )}
-
+                {messages.map((msg, idx) => {
+                  // Nếu là tin nhắn bot và có dạng sản phẩm thì parse
+                  const productParsed =
+                    msg.sender === "bot" ? parseProductMessage(msg.text) : null;
+                  // Always use a guaranteed unique key
+                  const key = msg.uniqueKey || `${msg.id}-${idx}`;
+                  return (
+                    <div key={key} className="flex flex-col">
                       <div
-                        className={`max-w-[80%] flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+                        className={`flex items-start gap-2 ${
+                          msg.sender !== "user"
+                            ? "flex-row"
+                            : "flex-row-reverse"
+                        }`}
                       >
+                        {msg.sender === "user" ? (
+                          <Avatar className="h-8 w-8 bg-pink-100">
+                            <User className="h-4 w-4 text-pink-600" />
+                          </Avatar>
+                        ) : msg.sender === "agent" ? (
+                          <Avatar className="h-8 w-8 bg-blue-100">
+                            <User className="h-4 w-4 text-blue-600" />
+                          </Avatar>
+                        ) : (
+                          <Avatar className="h-8 w-8 bg-gray-100">
+                            <Bot className="h-4 w-4 text-gray-600" />
+                          </Avatar>
+                        )}
+
                         <div
-                          className={`p-3 rounded-lg ${
-                            msg.sender === "user"
-                              ? "bg-pink-100 text-gray-800"
-                              : msg.sender === "agent"
-                                ? "bg-blue-100 text-gray-800"
-                                : "bg-gray-100 text-gray-800"
+                          className={`max-w-[80%] flex flex-col ${
+                            msg.sender === "user" ? "items-end" : "items-start"
                           }`}
                         >
-                          {msg.text}
-                        </div>
-
-                        {/* Hiển thị sản phẩm nếu có */}
-                        {msg.product && (
-                          <div className="mt-2 bg-white border rounded-lg p-2 w-full">
-                            <div className="flex items-center gap-2">
-                              <img
-                                src={msg.product.image || "/placeholder.svg"}
-                                alt={msg.product.name}
-                                className="w-12 h-12 object-cover rounded"
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{msg.product.name}</p>
-                                <p className="text-pink-600 text-sm font-semibold">
-                                  {formatCurrency(msg.product.price)}
-                                </p>
+                          {/* Nếu là sản phẩm thì hiển thị đẹp */}
+                          {productParsed ? (
+                            <div className="bg-white border rounded-lg p-3 w-full flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                {productParsed.image ? (
+                                  <img
+                                    src={productParsed.image}
+                                    alt={productParsed.name}
+                                    className="w-12 h-12 object-cover rounded"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                                    <Bot className="h-6 w-6 text-gray-400" />
+                                  </div>
+                                )}
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">
+                                    {productParsed.name}
+                                  </p>
+                                  <p className="text-pink-600 text-sm font-semibold">
+                                    {Number(productParsed.price).toLocaleString(
+                                      "vi-VN"
+                                    )}
+                                    đ
+                                  </p>
+                                </div>
+                                <a
+                                  href={`http://localhost:3000${productParsed.link}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Button
+                                    size="sm"
+                                    className="bg-pink-600 hover:bg-pink-700"
+                                  >
+                                    <ArrowRight className="h-4 w-4" />
+                                  </Button>
+                                </a>
                               </div>
-                              <Button size="sm" className="bg-pink-600 hover:bg-pink-700">
-                                <ArrowRight className="h-4 w-4" />
-                              </Button>
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            // Nếu không phải sản phẩm thì hiển thị như cũ
+                            <div
+                              className={`p-3 rounded-lg ${
+                                msg.sender === "user"
+                                  ? "bg-pink-100 text-gray-800"
+                                  : msg.sender === "agent"
+                                  ? "bg-blue-100 text-gray-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {msg.text}
+                            </div>
+                          )}
 
-                        {/* Quick replies */}
-                        {msg.quickReplies && msg.quickReplies.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {msg.quickReplies.map((reply) => (
-                              <Button
-                                key={reply.id}
-                                variant="outline"
-                                size="sm"
-                                className="text-pink-600 border-pink-200 hover:bg-pink-50"
-                                onClick={() => handleQuickReply(reply.action, reply.text)}
-                              >
-                                {reply.text}
-                              </Button>
-                            ))}
-                          </div>
-                        )}
+                          {/* ...existing code for msg.product, quickReplies, timestamp... */}
+                          {/* Hiển thị sản phẩm nếu có (cũ) */}
+                          {msg.product && (
+                            <div className="mt-2 bg-white border rounded-lg p-2 w-full">
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={msg.product.image || "/placeholder.svg"}
+                                  alt={msg.product.name}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">
+                                    {msg.product.name}
+                                  </p>
+                                  <p className="text-pink-600 text-sm font-semibold">
+                                    {formatCurrency(msg.product.price)}
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  className="bg-pink-600 hover:bg-pink-700"
+                                >
+                                  <ArrowRight className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
 
-                        <div className="flex items-center mt-1 text-xs text-gray-500">
-                          <span>{msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                          {msg.sender === "user" && <span className="ml-1">{renderMessageStatus(msg.status)}</span>}
+                          {/* Quick replies */}
+                          {msg.quickReplies && msg.quickReplies.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {msg.quickReplies.map((reply) => (
+                                <Button
+                                  key={reply.id}
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-pink-600 border-pink-200 hover:bg-pink-50"
+                                  onClick={() =>
+                                    handleQuickReply(reply.action, reply.text)
+                                  }
+                                >
+                                  {reply.text}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-center mt-1 text-xs text-gray-500">
+                            <span>
+                              {msg.timestamp.toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {msg.sender === "user" && (
+                              <span className="ml-1">
+                                {renderMessageStatus(msg.status)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Hiển thị "đang nhập" */}
                 {isTyping && (
@@ -465,10 +534,16 @@ export default function ChatbotButton() {
                     <div className="bg-gray-100 p-3 rounded-lg">
                       <div className="flex gap-1">
                         <span className="animate-bounce">.</span>
-                        <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>
+                        <span
+                          className="animate-bounce"
+                          style={{ animationDelay: "0.2s" }}
+                        >
                           .
                         </span>
-                        <span className="animate-bounce" style={{ animationDelay: "0.4s" }}>
+                        <span
+                          className="animate-bounce"
+                          style={{ animationDelay: "0.4s" }}
+                        >
                           .
                         </span>
                       </div>
@@ -500,36 +575,46 @@ export default function ChatbotButton() {
                   <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
                     <h4 className="font-medium">Làm thế nào để đặt hàng?</h4>
                     <p className="text-sm text-gray-600 mt-1">
-                      Bạn có thể đặt hàng trực tuyến thông qua website hoặc gọi điện đến số hotline 1900 xxxx.
+                      Bạn có thể đặt hàng trực tuyến thông qua website hoặc gọi
+                      điện đến số hotline 1900 xxxx.
                     </p>
                   </div>
 
                   <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">Chính sách đổi trả như thế nào?</h4>
+                    <h4 className="font-medium">
+                      Chính sách đổi trả như thế nào?
+                    </h4>
                     <p className="text-sm text-gray-600 mt-1">
-                      Thanh Tâm Cosmetics chấp nhận đổi trả trong vòng 30 ngày kể từ ngày mua hàng.
+                      Thanh Tâm Cosmetics chấp nhận đổi trả trong vòng 30 ngày
+                      kể từ ngày mua hàng.
                     </p>
                   </div>
 
                   <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">Phí vận chuyển là bao nhiêu?</h4>
+                    <h4 className="font-medium">
+                      Phí vận chuyển là bao nhiêu?
+                    </h4>
                     <p className="text-sm text-gray-600 mt-1">
-                      Miễn phí vận chuyển cho đơn hàng từ 500.000đ. Đơn hàng dưới 500.000đ, phí vận chuyển là 30.000đ.
+                      Miễn phí vận chuyển cho đơn hàng từ 500.000đ. Đơn hàng
+                      dưới 500.000đ, phí vận chuyển là 30.000đ.
                     </p>
                   </div>
 
                   <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
                     <h4 className="font-medium">Thời gian giao hàng?</h4>
                     <p className="text-sm text-gray-600 mt-1">
-                      Thời gian giao hàng từ 2-5 ngày làm việc tùy thuộc vào khu vực.
+                      Thời gian giao hàng từ 2-5 ngày làm việc tùy thuộc vào khu
+                      vực.
                     </p>
                   </div>
 
                   <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">Làm thế nào để theo dõi đơn hàng?</h4>
+                    <h4 className="font-medium">
+                      Làm thế nào để theo dõi đơn hàng?
+                    </h4>
                     <p className="text-sm text-gray-600 mt-1">
-                      Bạn có thể theo dõi đơn hàng bằng cách đăng nhập vào tài khoản hoặc sử dụng mã đơn hàng được gửi
-                      qua email.
+                      Bạn có thể theo dõi đơn hàng bằng cách đăng nhập vào tài
+                      khoản hoặc sử dụng mã đơn hàng được gửi qua email.
                     </p>
                   </div>
                 </div>
@@ -547,5 +632,5 @@ export default function ChatbotButton() {
         </Card>
       )}
     </>
-  )
+  );
 }

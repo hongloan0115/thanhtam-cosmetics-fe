@@ -46,7 +46,7 @@ export interface Product {
   ngayCapNhat: string;
   hinhAnh: {
     maHinhAnh: number; // sửa lại từ maAnh -> maHinhAnh
-    duongDanAnh: string;
+    duongDan: string;
     maAnhClound: string;
     moTa: string;
     laAnhChinh: number;
@@ -138,7 +138,7 @@ export default function AdminProducts() {
           item.hinhAnh && item.hinhAnh.length > 0
             ? item.hinhAnh.map((img: any) => ({
                 ...img,
-                duongDan: img.duongDan || img.duongDanAnh,
+                duongDan: img.duongDan || img.duongDan,
               }))
             : [],
         featured: false,
@@ -376,7 +376,7 @@ export default function AdminProducts() {
         detail.hinhAnh && detail.hinhAnh.length > 0
           ? detail.hinhAnh.map((img: any) => ({
               ...img,
-              duongDanAnh: img.duongDanAnh,
+              duongDan: img.duongDan,
             }))
           : [],
       featured: false,
@@ -392,7 +392,7 @@ export default function AdminProducts() {
       ...detail,
       images:
         detail.hinhAnh && detail.hinhAnh.length > 0
-          ? detail.hinhAnh.map((img) => img.duongDanAnh)
+          ? detail.hinhAnh.map((img) => img.duongDan)
           : ["/placeholder.svg?height=200&width=200"],
       featured: false,
       status: detail.trangThai, // trạng thái là string từ backend

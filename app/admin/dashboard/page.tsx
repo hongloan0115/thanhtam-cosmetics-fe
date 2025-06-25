@@ -1,14 +1,29 @@
 "use client";
 
 import type { Metadata } from "next";
+import { useEffect, useState } from "react";
 import { StatsCard } from "@/components/admin/stats-card";
 import { SalesChart } from "@/components/admin/charts/sales-chart";
 import { CategoryChart } from "@/components/admin/charts/category-chart";
 import { TopProductsChart } from "@/components/admin/charts/top-products-chart";
 import { RecentOrders } from "@/components/admin/recent-orders";
 import { DollarSign, ShoppingBag, Users, CreditCard } from "lucide-react";
+import { getDashboardSummary } from "@/services/api/statistics";
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("vi-VN") + "đ";
+}
 
 export default function AdminDashboard() {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDashboardSummary()
+      .then((res) => setSummary(res.data))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="space-y-6 pt-6 px-6">
       <div>
@@ -22,35 +37,59 @@ export default function AdminDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Doanh thu"
-          value="25,500,000đ"
+          value={
+            loading || !summary ? "..." : formatCurrency(summary.revenue.total)
+          }
           description="Tổng doanh thu tháng này"
           icon={DollarSign}
-          trend="up"
-          trendValue="12% so với tháng trước"
+          trend={summary?.revenue?.rate >= 0 ? "up" : "down"}
+          trendValue={
+            loading || !summary
+              ? ""
+              : `${Math.abs(summary.revenue.rate)}% so với tháng trước`
+          }
         />
         <StatsCard
           title="Đơn hàng"
-          value="120"
+          value={loading || !summary ? "..." : summary.orders.total}
           description="Tổng số đơn hàng tháng này"
           icon={ShoppingBag}
-          trend="up"
-          trendValue="8% so với tháng trước"
+          trend={summary?.orders?.rate >= 0 ? "up" : "down"}
+          trendValue={
+            loading || !summary
+              ? ""
+              : `${Math.abs(summary.orders.rate)}% so với tháng trước`
+          }
         />
         <StatsCard
           title="Khách hàng"
-          value="45"
+          value={loading || !summary ? "..." : summary.customers.total}
           description="Khách hàng mới tháng này"
           icon={Users}
-          trend="down"
-          trendValue="3% so với tháng trước"
+          trend={summary?.customers?.rate >= 0 ? "up" : "down"}
+          trendValue={
+            loading || !summary
+              ? ""
+              : `${Math.abs(summary.customers.rate)}% so với tháng trước`
+          }
         />
         <StatsCard
           title="Giá trị đơn hàng"
-          value="212,500đ"
+          value={
+            loading || !summary
+              ? "..."
+              : formatCurrency(summary.average_order_value.value)
+          }
           description="Giá trị trung bình mỗi đơn hàng"
           icon={CreditCard}
-          trend="up"
-          trendValue="5% so với tháng trước"
+          trend={summary?.average_order_value?.rate >= 0 ? "up" : "down"}
+          trendValue={
+            loading || !summary
+              ? ""
+              : `${Math.abs(
+                  summary.average_order_value.rate
+                )}% so với tháng trước`
+          }
         />
       </div>
 

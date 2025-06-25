@@ -17,11 +17,23 @@ export interface OrderCreate {
   ghiChu?: string;
   tongTien: number;
   trangThai?: string;
+  hoTenNguoiNhan: string; // thêm trường này
+  soDienThoaiNguoiNhan: string; // thêm trường này
 }
 
-export interface OrderCheckoutResponse {
+export interface OrderCustomerResponse {
   maDonHang: number;
-  chiTietDonHang: any[] | null;
+  ngayDat: string;
+  trangThai: string;
+  trangThaiThanhToan?: string;
+  phuongThucThanhToan: any;
+  tongTien: number;
+  diaChiChiTiet: string;
+  tinhThanh: string;
+  quanHuyen: string;
+  phuongXa: string;
+  ghiChu?: string;
+  chiTietDonHang: any[];
   payment_url?: string;
 }
 
@@ -53,8 +65,8 @@ export const OrderService = {
   async createOrder(
     order: OrderCreate,
     orderDetails: OrderDetailCreate[]
-  ): Promise<OrderCheckoutResponse> {
-    // Gửi đúng định dạng backend yêu cầu (order_data + order_details)
+  ): Promise<OrderCustomerResponse> {
+    // Gửi đúng định dạng backend yêu cầu: truyền 2 tham số riêng biệt (order_data, order_details)
     const response = await axiosInstance.post("/orders/checkout", {
       order_data: order,
       order_details: orderDetails,
@@ -65,6 +77,12 @@ export const OrderService = {
 
   async getOrdersByUser(userId: number | string): Promise<any[]> {
     const response = await axiosInstance.get(`/orders/history/${userId}`);
+    return response.data;
+  },
+
+  // Hủy đơn hàng (cho user)
+  async cancelOrder(orderId: number | string): Promise<any> {
+    const response = await axiosInstance.put(`/orders/cancel/${orderId}`);
     return response.data;
   },
 };

@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Star,
   Truck,
@@ -11,12 +10,13 @@ import {
   Minus,
   Plus,
   ShoppingCart,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import ProductCard from "@/components/product-card";
 import { formatCurrency } from "@/lib/utils";
 import { ProductService, Product } from "@/services/api/product";
-import { CartService } from "@/services/api/carts"; // Thêm dòng này
+import { CartService } from "@/services/api/carts";
 import React from "react";
 
 interface ProductPageProps {
@@ -34,12 +34,24 @@ export default function ProductPage({ params }: ProductPageProps) {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1); // Thêm state số lượng
   const [adding, setAdding] = useState(false); // Trạng thái loading khi thêm
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0); // State cho ảnh đang xem
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     ProductService.getById(unwrappedParams.id)
       .then((data) => setProduct(data))
       .finally(() => setLoading(false));
   }, [unwrappedParams.id]);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Các trường bổ sung không có trong API
   const extraFields = {
@@ -122,7 +134,7 @@ export default function ProductPage({ params }: ProductPageProps) {
   // Lấy danh sách ảnh từ API, fallback nếu không có
   const images =
     product.hinhAnh && product.hinhAnh.length > 0
-      ? product.hinhAnh.map((img) => img.duongDanAnh)
+      ? product.hinhAnh.map((img) => img.duongDan)
       : ["/placeholder.svg?height=600&width=600"];
 
   // Hàm xử lý thêm vào giỏ hàng
@@ -130,14 +142,35 @@ export default function ProductPage({ params }: ProductPageProps) {
     if (!product) return;
     setAdding(true);
     try {
-      await CartService.addItemToCart({
+      await CartService.addItem({
         maSanPham: product.maSanPham,
         soLuong: quantity,
-        giaTaiThem: 0, // Nếu không có giá thêm, để 0
       });
-      alert("Đã thêm vào giỏ hàng!"); // Có thể thay bằng toast/snackbar
-    } catch (error) {
-      alert("Thêm vào giỏ hàng thất bại!");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("cart:add"));
+      }
+      setNotification({
+        type: "success",
+        message: "Thêm vào giỏ hàng thành công!",
+      });
+    } catch (error: any) {
+      const isNotAuthenticated =
+        error?.response?.status === 401 ||
+        error?.response?.data?.detail === "Not authenticated";
+      if (isNotAuthenticated) {
+        if (
+          window.confirm(
+            "Bạn cần đăng nhập để thêm vào giỏ hàng. Chuyển đến trang đăng nhập?"
+          )
+        ) {
+          window.location.href = "/auth/login";
+        }
+      } else {
+        setNotification({
+          type: "error",
+          message: "Thêm vào giỏ hàng thất bại!",
+        });
+      }
     } finally {
       setAdding(false);
     }
@@ -145,6 +178,24 @@ export default function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="container py-8">
+      {notification && (
+        <div
+          className={`mb-4 px-4 py-2 rounded ${
+            notification.type === "success"
+              ? "bg-green-100 text-green-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {notification.message}
+          <button
+            className="float-right ml-4 text-lg font-bold"
+            onClick={() => setNotification(null)}
+            aria-label="Đóng"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <Link
         href="/products"
         className="inline-flex items-center text-sm mb-6 hover:text-pink-600"
@@ -156,18 +207,47 @@ export default function ProductPage({ params }: ProductPageProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
         {/* Product images */}
         <div className="space-y-4">
-          <div className="aspect-square overflow-hidden rounded-lg bg-gray-100">
+          <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+            <button
+              type="button"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 rounded-full p-1 shadow hover:bg-white disabled:opacity-50"
+              onClick={() =>
+                setSelectedImageIndex((idx) => Math.max(0, idx - 1))
+              }
+              disabled={selectedImageIndex === 0}
+              aria-label="Ảnh trước"
+            >
+              <ArrowLeft className="h-6 w-6 text-gray-700" />
+            </button>
             <img
-              src={images[0]}
+              src={images[selectedImageIndex]}
               alt={product.tenSanPham}
               className="object-cover w-full h-full"
             />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 rounded-full p-1 shadow hover:bg-white disabled:opacity-50"
+              onClick={() =>
+                setSelectedImageIndex((idx) =>
+                  Math.min(images.length - 1, idx + 1)
+                )
+              }
+              disabled={selectedImageIndex === images.length - 1}
+              aria-label="Ảnh sau"
+            >
+              <ArrowRight className="h-6 w-6 text-gray-700" />
+            </button>
           </div>
           <div className="grid grid-cols-4 gap-4">
             {images.map((image, index) => (
               <div
                 key={index}
-                className="aspect-square overflow-hidden rounded-lg bg-gray-100 cursor-pointer border-2 border-transparent hover:border-pink-600"
+                className={`aspect-square overflow-hidden rounded-lg bg-gray-100 cursor-pointer border-2 ${
+                  selectedImageIndex === index
+                    ? "border-pink-600"
+                    : "border-transparent"
+                } hover:border-pink-600`}
+                onClick={() => setSelectedImageIndex(index)}
               >
                 <img
                   src={image}
@@ -213,7 +293,7 @@ export default function ProductPage({ params }: ProductPageProps) {
               {formatCurrency(product.giaBan)}
             </div>
 
-            <p className="text-gray-600 mb-6">{extraFields.description}</p>
+            <p className="text-gray-600 mb-6">{product.moTa}</p>
 
             <div className="space-y-4 mb-6">
               <div className="flex items-center text-sm">
@@ -278,7 +358,9 @@ export default function ProductPage({ params }: ProductPageProps) {
                   Tình trạng
                 </label>
                 <div className="text-sm font-medium text-green-600">
-                  Còn hàng ({extraFields.stock} sản phẩm)
+                  {product.trangThai
+                    ? `Còn hàng (${product.soLuongTonKho} sản phẩm)`
+                    : "Hết hàng"}
                 </div>
               </div>
             </div>
@@ -306,124 +388,112 @@ export default function ProductPage({ params }: ProductPageProps) {
         </div>
       </div>
 
-      {/* Product details tabs */}
-      <div className="mb-12">
-        <Tabs defaultValue="description">
-          <TabsList className="w-full border-b">
-            <TabsTrigger value="description">Mô tả</TabsTrigger>
-            <TabsTrigger value="specifications">Thông số kỹ thuật</TabsTrigger>
-            <TabsTrigger value="reviews">
-              Đánh giá ({extraFields.reviewCount})
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="description" className="py-6">
-            <div className="prose max-w-none">
-              <p>{extraFields.description}</p>
-              <h3 className="text-lg font-medium mt-6 mb-4">
-                Đặc điểm nổi bật
-              </h3>
-              <ul>
-                {extraFields.features.map((feature, index) => (
-                  <li key={index}>{feature}</li>
-                ))}
-              </ul>
-              <h3 className="text-lg font-medium mt-6 mb-4">
-                Hướng dẫn sử dụng
-              </h3>
-              <p>
-                Lấy một lượng kem vừa đủ và thoa đều lên da mặt và cổ sau khi đã
-                làm sạch và sử dụng toner. Vỗ nhẹ để kem thẩm thấu hoàn toàn vào
-                da. Sử dụng hai lần mỗi ngày, sáng và tối.
-              </p>
-              <h3 className="text-lg font-medium mt-6 mb-4">Lưu ý</h3>
-              <p>
-                Tránh tiếp xúc với mắt. Nếu sản phẩm tiếp xúc với mắt, rửa sạch
-                ngay bằng nước. Ngừng sử dụng nếu xuất hiện dấu hiệu kích ứng và
-                tham khảo ý kiến bác sĩ.
-              </p>
-            </div>
-          </TabsContent>
-          <TabsContent value="specifications" className="py-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(extraFields.specifications).map(
-                ([key, value]) => (
-                  <div key={key} className="flex border-b py-2">
-                    <span className="font-medium w-40">{key}</span>
-                    <span className="text-gray-600">{value}</span>
+      {/* Product details sections (no tabs) */}
+      <div className="mb-12 space-y-12">
+        {/* Mô tả */}
+        <section>
+          <h2 className="text-xl font-bold mb-4">Mô tả</h2>
+          <div className="prose max-w-none">
+            <p>{extraFields.description}</p>
+            <h3 className="text-lg font-medium mt-6 mb-4">Đặc điểm nổi bật</h3>
+            <ul>
+              {extraFields.features.map((feature, index) => (
+                <li key={index}>{feature}</li>
+              ))}
+            </ul>
+            <h3 className="text-lg font-medium mt-6 mb-4">Hướng dẫn sử dụng</h3>
+            <p>
+              Lấy một lượng kem vừa đủ và thoa đều lên da mặt và cổ sau khi đã
+              làm sạch và sử dụng toner. Vỗ nhẹ để kem thẩm thấu hoàn toàn vào
+              da. Sử dụng hai lần mỗi ngày, sáng và tối.
+            </p>
+            <h3 className="text-lg font-medium mt-6 mb-4">Lưu ý</h3>
+            <p>
+              Tránh tiếp xúc với mắt. Nếu sản phẩm tiếp xúc với mắt, rửa sạch
+              ngay bằng nước. Ngừng sử dụng nếu xuất hiện dấu hiệu kích ứng và
+              tham khảo ý kiến bác sĩ.
+            </p>
+          </div>
+        </section>
+        {/* Thông số kỹ thuật */}
+        <section>
+          <h2 className="text-xl font-bold mb-4">Thông số kỹ thuật</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(extraFields.specifications).map(([key, value]) => (
+              <div key={key} className="flex border-b py-2">
+                <span className="font-medium w-40">{key}</span>
+                <span className="text-gray-600">{value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        {/* Đánh giá */}
+        <section>
+          <h2 className="text-xl font-bold mb-4">
+            Đánh giá ({extraFields.reviewCount})
+          </h2>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center mt-1">
+                  <div className="flex">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-5 w-5 ${
+                          i < Math.floor(extraFields.rating)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
                   </div>
-                )
-              )}
-            </div>
-          </TabsContent>
-          <TabsContent value="reviews" className="py-6">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-medium">
-                    Đánh giá từ khách hàng
-                  </h3>
-                  <div className="flex items-center mt-1">
-                    <div className="flex">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-5 w-5 ${
-                            i < Math.floor(extraFields.rating)
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="ml-2 text-sm font-medium">
-                      {extraFields.rating} trên 5
-                    </span>
-                    <span className="mx-2 text-gray-300">·</span>
-                    <span className="text-sm text-gray-500">
-                      {extraFields.reviewCount} đánh giá
-                    </span>
-                  </div>
+                  <span className="ml-2 text-sm font-medium">
+                    {extraFields.rating} trên 5
+                  </span>
+                  <span className="mx-2 text-gray-300">·</span>
+                  <span className="text-sm text-gray-500">
+                    {extraFields.reviewCount} đánh giá
+                  </span>
                 </div>
-                <Button className="bg-pink-600 hover:bg-pink-700">
-                  Viết đánh giá
-                </Button>
               </div>
-
-              {/* Sample reviews */}
-              <div className="space-y-6">
-                {[1, 2, 3].map((review) => (
-                  <div key={review} className="border-b pb-6">
-                    <div className="flex justify-between mb-2">
-                      <div className="font-medium">Nguyễn Thị Hương</div>
-                      <div className="text-sm text-gray-500">12/03/2023</div>
-                    </div>
-                    <div className="flex mb-2">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-4 w-4 ${
-                            i < 5
-                              ? "fill-yellow-400 text-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-gray-600">
-                      Sản phẩm rất tốt, da tôi cảm thấy mềm mịn và đủ ẩm sau khi
-                      sử dụng. Kết cấu kem nhẹ, thẩm thấu nhanh và không gây
-                      nhờn rít. Sẽ tiếp tục mua lại!
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <Button variant="outline" className="w-full">
-                Xem thêm đánh giá
+              <Button className="bg-pink-600 hover:bg-pink-700">
+                Viết đánh giá
               </Button>
             </div>
-          </TabsContent>
-        </Tabs>
+            {/* Sample reviews */}
+            <div className="space-y-6">
+              {[1, 2, 3].map((review) => (
+                <div key={review} className="border-b pb-6">
+                  <div className="flex justify-between mb-2">
+                    <div className="font-medium">Nguyễn Thị Hương</div>
+                    <div className="text-sm text-gray-500">12/03/2023</div>
+                  </div>
+                  <div className="flex mb-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < 5
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-gray-600">
+                    Sản phẩm rất tốt, da tôi cảm thấy mềm mịn và đủ ẩm sau khi
+                    sử dụng. Kết cấu kem nhẹ, thẩm thấu nhanh và không gây nhờn
+                    rít. Sẽ tiếp tục mua lại!
+                  </p>
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" className="w-full">
+              Xem thêm đánh giá
+            </Button>
+          </div>
+        </section>
       </div>
 
       {/* Related products */}

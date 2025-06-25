@@ -35,9 +35,9 @@ const ProductGrid = ({
               <img
                 src={
                   product.images?.[0]?.duongDan ||
-                  product.images?.[0]?.duongDanAnh ||
+                  product.images?.[0]?.duongDan ||
                   product.hinhAnh?.[0]?.duongDan ||
-                  product.hinhAnh?.[0]?.duongDanAnh ||
+                  product.hinhAnh?.[0]?.duongDan ||
                   product.images?.[0] ||
                   "/placeholder.svg?height=200&width=200"
                 }

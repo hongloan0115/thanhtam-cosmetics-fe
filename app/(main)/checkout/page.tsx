@@ -29,7 +29,12 @@ import {
   OrderCreate,
   OrderDetailCreate,
 } from "@/services/api/orders";
-import { AddressService, Province, District, Ward } from "@/services/api/address";
+import {
+  AddressService,
+  Province,
+  District,
+  Ward,
+} from "@/services/api/address";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -68,7 +73,6 @@ export default function CheckoutPage() {
 
   const [formData, setFormData] = useState({
     fullName: "",
-    email: "",
     phone: "",
     address: "",
     city: "",
@@ -80,12 +84,12 @@ export default function CheckoutPage() {
 
   const [formErrors, setFormErrors] = useState({
     fullName: false,
-    email: false,
     phone: false,
     address: false,
     city: false,
     district: false,
     ward: false,
+    phoneInvalid: false, // thêm trường kiểm tra định dạng số điện thoại
   });
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -176,18 +180,30 @@ export default function CheckoutPage() {
     });
   };
 
+  // Hàm kiểm tra số điện thoại Việt Nam
+  const isValidVietnamesePhone = (phone: string) => {
+    // Bắt đầu bằng 0, theo sau là 9 hoặc 10 số
+    return /^0\d{9,10}$/.test(phone);
+  };
+
   const validateForm = () => {
     const errors = {
       fullName: !formData.fullName,
-      email: !formData.email,
       phone: !formData.phone,
       address: !formData.address,
       city: !formData.city,
       district: !formData.district,
       ward: !formData.ward,
+      phoneInvalid: false,
     };
 
+    // Kiểm tra định dạng số điện thoại nếu đã nhập
+    if (formData.phone && !isValidVietnamesePhone(formData.phone)) {
+      errors.phoneInvalid = true;
+    }
+
     setFormErrors(errors);
+    // Nếu có lỗi hoặc số điện thoại không hợp lệ thì trả về false
     return !Object.values(errors).some(Boolean);
   };
 
@@ -199,7 +215,7 @@ export default function CheckoutPage() {
     // Lấy maNguoiDung mẫu (hoặc lấy từ localStorage nếu có đăng nhập)
     const maNguoiDung = 1; // TODO: lấy từ user context hoặc localStorage nếu có
 
-    // Chuyển cartItems thành orderDetails
+    // Chuyển cartItems thành orderDetails đúng chuẩn API
     const orderDetails: OrderDetailCreate[] = cartItems.map((item) => ({
       maSanPham: item.id || item.sanPham?.maSanPham,
       soLuong: item.quantity || item.soLuong,
@@ -209,6 +225,7 @@ export default function CheckoutPage() {
         (item.quantity || item.soLuong || 1),
     }));
 
+    // Đảm bảo đúng trường cho OrderCreate
     const order: OrderCreate = {
       maNguoiDung,
       diaChiChiTiet: formData.address,
@@ -218,6 +235,8 @@ export default function CheckoutPage() {
       maPhuongThuc: Number(formData.paymentMethod),
       ghiChu: formData.notes,
       tongTien: subtotal + shipping,
+      hoTenNguoiNhan: formData.fullName,
+      soDienThoaiNguoiNhan: formData.phone,
     };
 
     try {
@@ -293,41 +312,36 @@ export default function CheckoutPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">
-                      Email <span className="text-red-500">*</span>
+                    <Label htmlFor="phone">
+                      Số điện thoại <span className="text-red-500">*</span>
                     </Label>
                     <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
                       onChange={handleInputChange}
-                      className={formErrors.email ? "border-red-500" : ""}
+                      className={
+                        formErrors.phone || formErrors.phoneInvalid
+                          ? "border-red-500"
+                          : ""
+                      }
                     />
-                    {formErrors.email && (
+                    <p className="text-xs text-gray-500">
+                      Số điện thoại này sẽ được dùng để xác nhận đơn hàng với
+                      bạn.
+                    </p>
+                    {formErrors.phone && (
                       <p className="text-red-500 text-xs">
-                        Vui lòng nhập email
+                        Vui lòng nhập số điện thoại
+                      </p>
+                    )}
+                    {formErrors.phoneInvalid && (
+                      <p className="text-red-500 text-xs">
+                        Số điện thoại không hợp lệ (phải là số Việt Nam, bắt đầu
+                        bằng 0, gồm 10 hoặc 11 số)
                       </p>
                     )}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className={formErrors.phone ? "border-red-500" : ""}
-                  />
-                  {formErrors.phone && (
-                    <p className="text-red-500 text-xs">
-                      Vui lòng nhập số điện thoại
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -537,8 +551,8 @@ export default function CheckoutPage() {
                             item.image ||
                             item.sanPham?.hinhAnh?.find(
                               (img: any) => img.laAnhChinh
-                            )?.duongDanAnh ||
-                            item.sanPham?.hinhAnh?.[0]?.duongDanAnh ||
+                            )?.duongDan ||
+                            item.sanPham?.hinhAnh?.[0]?.duongDan ||
                             "/placeholder.svg"
                           }
                           alt={

@@ -26,6 +26,7 @@ interface User {
   createdAt: string;
   orders?: number;
   totalSpent?: number;
+  fullName?: string; // thêm trường này
 }
 
 // Define form type
@@ -54,9 +55,12 @@ export default function AdminUsers() {
         // Chuyển đổi dữ liệu từ API sang định dạng UI
         const mappedUsers: User[] = apiUsers.map((u) => ({
           id: u.maNguoiDung,
-          name: u.tenNguoiDung || u.hoTen || "Chưa đặt tên",
+          name: u.tenNguoiDung || "Chưa đặt tên",
           email: u.email,
-          phone: u.soDienThoai || "",
+          phone:
+            u.soDienThoai && u.soDienThoai.trim() !== ""
+              ? u.soDienThoai
+              : "Không có",
           role:
             u.vaiTro && u.vaiTro.length > 0
               ? u.vaiTro[0].tenVaiTro
@@ -67,6 +71,8 @@ export default function AdminUsers() {
           createdAt: "", // Nếu API có trường này thì map vào
           orders: 0, // Nếu API có trường này thì map vào
           totalSpent: 0, // Nếu API có trường này thì map vào
+          // Thêm trường họ tên riêng biệt
+          fullName: u.hoTen && u.hoTen.trim() !== "" ? u.hoTen : "Không có",
         }));
         setUsers(mappedUsers);
       })
@@ -299,6 +305,29 @@ export default function AdminUsers() {
     }).format(amount);
   };
 
+  // Thêm hàm cập nhật trạng thái người dùng
+  const handleToggleStatus = async (user: User) => {
+    try {
+      // Đảo ngược trạng thái hiện tại
+      const newStatus = user.status !== "Hoạt động";
+      // Gọi API cập nhật trạng thái
+      await UserService.updateStatus(user.id, newStatus);
+      // Cập nhật lại danh sách users trong state
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id
+            ? {
+                ...u,
+                status: newStatus ? "Hoạt động" : "Bị khóa",
+              }
+            : u
+        )
+      );
+    } catch (err) {
+      alert("Cập nhật trạng thái thất bại!");
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Hiển thị loading/error */}
@@ -431,6 +460,7 @@ export default function AdminUsers() {
                   handleEditUser={handleEditUser}
                   handleResetPassword={handleResetPassword}
                   handleDeleteClick={handleDeleteClick}
+                  handleToggleStatus={handleToggleStatus} // thêm dòng này
                 />
               ) : (
                 <UserGrid

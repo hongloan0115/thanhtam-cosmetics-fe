@@ -59,7 +59,6 @@ interface Brand {
   id: number;
   name: string;
   description?: string;
-  productCount: number;
   status: "active" | "inactive";
   createdAt: string;
 }
@@ -119,10 +118,6 @@ export default function AdminBrands() {
         return sortDirection === "asc"
           ? a.name.localeCompare(b.name)
           : b.name.localeCompare(a.name);
-      } else if (sortField === "productCount") {
-        return sortDirection === "asc"
-          ? a.productCount - b.productCount
-          : b.productCount - a.productCount;
       } else if (sortField === "createdAt") {
         return sortDirection === "asc"
           ? a.createdAt.localeCompare(b.createdAt)
@@ -320,8 +315,6 @@ export default function AdminBrands() {
           id: item.maThuongHieu,
           name: item.tenThuongHieu ?? "",
           description: item.moTa ?? "",
-          productCount:
-            typeof item.soLuongSanPham === "number" ? item.soLuongSanPham : 0,
           status: item.trangThai ? "active" : "inactive",
           createdAt: item.ngayTao
             ? new Date(item.ngayTao).toLocaleDateString("vi-VN")
@@ -435,18 +428,6 @@ export default function AdminBrands() {
                   <TableHead className="text-center">Mô tả</TableHead>
                   <TableHead
                     className="cursor-pointer text-center"
-                    onClick={() => toggleSort("productCount")}
-                  >
-                    <div className="flex items-center justify-center">
-                      Số sản phẩm
-                      {sortField === "productCount" && (
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                      )}
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-center">Trạng thái</TableHead>
-                  <TableHead
-                    className="cursor-pointer text-center"
                     onClick={() => toggleSort("createdAt")}
                   >
                     <div className="flex items-center justify-center">
@@ -456,6 +437,7 @@ export default function AdminBrands() {
                       )}
                     </div>
                   </TableHead>
+                  <TableHead className="text-center">Trạng thái</TableHead>
                   <TableHead className="text-center">Thao tác</TableHead>
                 </TableRow>
               </TableHeader>
@@ -484,9 +466,6 @@ export default function AdminBrands() {
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-center">
                         {brand.description}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {brand.productCount}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -605,13 +584,22 @@ export default function AdminBrands() {
           </DialogHeader>
           {viewingBrand && (
             <div className="space-y-6 py-4">
+              {/* Sửa lại bố cục: ID & Tên cùng hàng, Trạng thái & Ngày tạo cùng hàng */}
               <div className="grid grid-cols-2 gap-6">
+                {/* ID và Tên thương hiệu cùng hàng */}
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     ID
                   </p>
                   <p className="font-medium text-base">{viewingBrand.id}</p>
                 </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
+                    Tên thương hiệu
+                  </p>
+                  <p className="font-medium text-base">{viewingBrand.name}</p>
+                </div>
+                {/* Trạng thái và Ngày tạo cùng hàng */}
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Trạng thái
@@ -634,24 +622,13 @@ export default function AdminBrands() {
                     )}
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                    Tên thương hiệu
-                  </p>
-                  <p className="font-medium text-base">{viewingBrand.name}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                    Số sản phẩm
-                  </p>
-                  <p className="font-medium">{viewingBrand.productCount}</p>
-                </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Ngày tạo
                   </p>
                   <p className="font-medium">{viewingBrand.createdAt}</p>
                 </div>
+                {/* Mô tả chiếm cả 2 cột */}
                 <div className="col-span-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
                     Mô tả
