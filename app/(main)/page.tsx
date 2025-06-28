@@ -14,50 +14,6 @@ import { ProductService, Product } from "@/services/api/product";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
-  // Sample data - in a real app, this would come from a database
-  const featuredProducts = [
-    {
-      id: 1,
-      name: "Kem dưỡng ẩm Thanh Tâm",
-      price: 450000,
-      image: "/placeholder.svg?height=300&width=300",
-      rating: 4.8,
-      reviewCount: 124,
-      category: "Chăm sóc da",
-      isNew: true,
-    },
-    {
-      id: 2,
-      name: "Serum Vitamin C",
-      price: 650000,
-      image: "/placeholder.svg?height=300&width=300",
-      rating: 4.9,
-      reviewCount: 89,
-      category: "Chăm sóc da",
-      isNew: false,
-    },
-    {
-      id: 3,
-      name: "Phấn nước Thanh Tâm",
-      price: 550000,
-      image: "/placeholder.svg?height=300&width=300",
-      rating: 4.7,
-      reviewCount: 56,
-      category: "Trang điểm",
-      isNew: true,
-    },
-    {
-      id: 4,
-      name: "Son lì Thanh Tâm",
-      price: 350000,
-      image: "/placeholder.svg?height=300&width=300",
-      rating: 4.6,
-      reviewCount: 78,
-      category: "Trang điểm",
-      isNew: false,
-    },
-  ];
-
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   // State cho sản phẩm mới nhất (trong 1 tháng gần đây)
@@ -238,23 +194,25 @@ export default function Home() {
               Không có danh mục nào
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
-              {categories.map((category) => (
-                <div
-                  key={category.maDanhMuc}
-                  className="rounded-lg border bg-white p-3 flex flex-col items-center text-center shadow-sm hover:shadow-md transition"
-                >
-                  <div className="h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center mb-2 text-pink-600 text-xl font-bold">
-                    {category.tenDanhMuc?.charAt(0) || "?"}
+            <div className="flex justify-center">
+              <div className="flex flex-wrap gap-5 justify-center">
+                {categories.map((category) => (
+                  <div
+                    key={category.maDanhMuc}
+                    className="w-48 rounded-lg border bg-white p-3 flex flex-col items-center text-center shadow-sm hover:shadow-md transition"
+                  >
+                    <div className="h-12 w-12 rounded-full bg-pink-100 flex items-center justify-center mb-2 text-pink-600 text-xl font-bold">
+                      {category.tenDanhMuc?.charAt(0) || "?"}
+                    </div>
+                    <span className="text-base font-semibold text-pink-700 mb-1 truncate w-full">
+                      {category.tenDanhMuc}
+                    </span>
+                    <span className="text-xs text-gray-500 line-clamp-2">
+                      {category.moTa}
+                    </span>
                   </div>
-                  <span className="text-base font-semibold text-pink-700 mb-1 truncate w-full">
-                    {category.tenDanhMuc}
-                  </span>
-                  <span className="text-xs text-gray-500 line-clamp-2">
-                    {category.moTa}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>

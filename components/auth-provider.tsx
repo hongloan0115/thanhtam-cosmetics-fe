@@ -128,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAuthenticated(false);
     localStorage.removeItem("accessToken");
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("refreshToken");
 
     // Redirect to home page
     router.push("/");

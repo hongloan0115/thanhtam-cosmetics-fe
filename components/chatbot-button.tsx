@@ -14,6 +14,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  RefreshCw, // thêm icon refresh
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
@@ -57,6 +58,7 @@ export default function ChatbotButton() {
   const [isAgentMode, setIsAgentMode] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [chatSummaries, setChatSummaries] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Tải lịch sử chat từ localStorage khi component được mount
@@ -92,12 +94,29 @@ export default function ChatbotButton() {
     }
   }, []);
 
+  // Tải tóm tắt hội thoại từ localStorage khi component được mount
+  useEffect(() => {
+    const savedSummaries = localStorage.getItem("chatSummary");
+    if (savedSummaries) {
+      try {
+        setChatSummaries(JSON.parse(savedSummaries));
+      } catch {
+        setChatSummaries([]);
+      }
+    }
+  }, []);
+
   // Lưu tin nhắn vào localStorage khi messages thay đổi
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem("chatHistory", JSON.stringify(messages));
     }
   }, [messages]);
+
+  // Lưu tóm tắt hội thoại vào localStorage khi thay đổi
+  useEffect(() => {
+    localStorage.setItem("chatSummary", JSON.stringify(chatSummaries));
+  }, [chatSummaries]);
 
   // Cuộn xuống tin nhắn mới nhất
   useEffect(() => {
@@ -138,6 +157,25 @@ export default function ChatbotButton() {
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
+  };
+
+  // Hàm chuyển đổi messages FE sang history cho backend
+  const buildHistory = () => {
+    // Lấy chỉ số đã tóm tắt cuối cùng
+    const lastSummarizedIndex = Number(
+      localStorage.getItem("lastSummarizedIndex") || "0"
+    );
+    // Chỉ lấy các message mới hơn lần tóm tắt cuối
+    return messages
+      .filter(
+        (msg, idx) =>
+          (msg.sender === "user" || msg.sender === "bot") &&
+          idx >= lastSummarizedIndex
+      )
+      .map((msg) => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text,
+      }));
   };
 
   const handleSend = (e: React.FormEvent) => {
@@ -182,10 +220,15 @@ export default function ChatbotButton() {
       return;
     }
 
-    // Gửi message tới backend qua WebSocket
+    // Gửi message tới backend qua WebSocket (dạng JSON)
     if (ws && wsConnected) {
       setIsTyping(true);
-      ws.send(input);
+      const payload = {
+        message: input,
+        history: buildHistory(),
+        summary: chatSummaries, // gửi summary cùng history
+      };
+      ws.send(JSON.stringify(payload));
     } else {
       // Nếu ws chưa sẵn sàng, chỉ báo lỗi
       setIsTyping(false);
@@ -197,7 +240,7 @@ export default function ChatbotButton() {
           sender: "bot",
           timestamp: new Date(),
           status: "received",
-          uniqueKey: createUniqueKey(), // ensure uniqueKey is always set
+          uniqueKey: createUniqueKey(),
         },
       ]);
     }
@@ -233,10 +276,15 @@ export default function ChatbotButton() {
       return;
     }
 
-    // Gửi action/text tới backend qua WebSocket
+    // Gửi action/text tới backend qua WebSocket (dạng JSON)
     if (ws && wsConnected) {
       setIsTyping(true);
-      ws.send(text);
+      const payload = {
+        message: text,
+        history: buildHistory(),
+        summary: chatSummaries, // gửi summary cùng history
+      };
+      ws.send(JSON.stringify(payload));
     } else {
       setIsTyping(false);
       setMessages((prev) => [
@@ -247,16 +295,59 @@ export default function ChatbotButton() {
           sender: "bot",
           timestamp: new Date(),
           status: "received",
-          uniqueKey: createUniqueKey(), // ensure uniqueKey is always set
+          uniqueKey: createUniqueKey(),
         },
       ]);
     }
   };
 
+  // Tóm tắt sau mỗi 5 tin nhắn (user+bot)
+  useEffect(() => {
+    const lastSummarizedIndex = Number(
+      localStorage.getItem("lastSummarizedIndex") || "0"
+    );
+    const chatMsgs = messages.filter(
+      (msg) => msg.sender === "user" || msg.sender === "bot"
+    );
+    if (chatMsgs.length - lastSummarizedIndex >= 5) {
+      const msgsToSummarize = chatMsgs.slice(lastSummarizedIndex);
+      // Gộp summary trước đó (nếu có) với 5 history mới nhất để tạo summary mới
+      const prevSummary =
+        chatSummaries.length > 0 ? chatSummaries[chatSummaries.length - 1] : "";
+      const payload: any = {
+        messages: msgsToSummarize.map((m) => ({
+          role: m.sender === "user" ? "user" : "assistant",
+          content: m.text,
+        })),
+      };
+      if (prevSummary) {
+        payload.prev_summary = prevSummary;
+      }
+      import("@/utils/axios-instance").then(({ default: axiosInstance }) => {
+        axiosInstance
+          .post("/chat/summary", payload)
+          .then((res) => {
+            const data = res.data;
+            if (data.summary) {
+              setChatSummaries((prev) => [...prev, data.summary]);
+              localStorage.setItem(
+                "lastSummarizedIndex",
+                String(chatMsgs.length)
+              );
+            }
+          })
+          .catch(() => {});
+      });
+    }
+  }, [messages]);
+
   const resetChat = () => {
-    // Xóa lịch sử chat và bắt đầu lại
+    // Xóa lịch sử chat và tóm tắt chỉ khi bấm nút bắt đầu trò chuyện mới
     localStorage.removeItem("chatHistory");
+    localStorage.removeItem("chatSummary");
+    localStorage.removeItem("lastSummarizedIndex");
     setIsAgentMode(false);
+    setChatSummaries([]);
 
     const welcomeMessage: Message = {
       id: Date.now().toString(),
@@ -335,28 +426,42 @@ export default function ChatbotButton() {
         <Card className="fixed bottom-24 right-6 w-80 md:w-96 shadow-xl z-50 overflow-hidden flex flex-col h-[500px]">
           <Tabs defaultValue="chat" className="flex flex-col h-full">
             <div className="bg-pink-600 text-white p-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-medium">Trợ lý Thanh Tâm</h3>
-                <p className="text-sm opacity-90">
+              <div className="flex flex-col">
+                <h3 className="font-medium text-lg leading-tight">
+                  Trợ lý Thanh Tâm
+                </h3>
+                <p className="text-xs opacity-90">
                   {isAgentMode
                     ? "Đang nói chuyện với nhân viên"
                     : "Hỗ trợ trực tuyến 24/7"}
                 </p>
               </div>
-              <TabsList className="bg-pink-700">
-                <TabsTrigger
-                  value="chat"
-                  className="text-white data-[state=active]:bg-pink-800"
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="p-1 h-8 w-8 rounded-full border border-white/30 hover:bg-pink-700"
+                  onClick={resetChat}
+                  type="button"
+                  title="Bắt đầu chat mới"
                 >
-                  Chat
-                </TabsTrigger>
-                <TabsTrigger
-                  value="faq"
-                  className="text-white data-[state=active]:bg-pink-800"
-                >
-                  FAQ
-                </TabsTrigger>
-              </TabsList>
+                  <RefreshCw className="h-4 w-4 text-white" />
+                </Button>
+                {/* <TabsList className="bg-pink-700 ml-1">
+                  <TabsTrigger
+                    value="chat"
+                    className="text-white data-[state=active]:bg-pink-800"
+                  >
+                    Chat
+                  </TabsTrigger>
+                  Ẩn tab FAQ bằng cách không render TabsTrigger FAQ
+                  <TabsTrigger
+                    value="faq"
+                    className="text-white data-[state=active]:bg-pink-800"
+                  >
+                    FAQ
+                  </TabsTrigger>
+                </TabsList> */}
+              </div>
             </div>
 
             <TabsContent
@@ -453,7 +558,6 @@ export default function ChatbotButton() {
                             </div>
                           )}
 
-                          {/* ...existing code for msg.product, quickReplies, timestamp... */}
                           {/* Hiển thị sản phẩm nếu có (cũ) */}
                           {msg.product && (
                             <div className="mt-2 bg-white border rounded-lg p-2 w-full">
@@ -565,69 +669,69 @@ export default function ChatbotButton() {
                   <Send className="h-4 w-4" />
                 </Button>
               </form>
+              {/* ĐÃ BỎ nút "Bắt đầu cuộc trò chuyện mới" ở đây */}
             </TabsContent>
 
-            <TabsContent value="faq" className="flex-1 p-4 overflow-y-auto m-0">
-              <div className="space-y-4">
-                <h3 className="font-medium text-lg">Câu hỏi thường gặp</h3>
+            {/* Ẩn hoàn toàn TabsContent FAQ */}
+            {/* <TabsContent value="faq" className="flex-1 p-0 m-0 overflow-hidden">
+              <div className="flex flex-col h-full">
+                <div className="flex-1 p-4 overflow-y-auto">
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-lg">Câu hỏi thường gặp</h3>
 
-                <div className="space-y-3">
-                  <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">Làm thế nào để đặt hàng?</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Bạn có thể đặt hàng trực tuyến thông qua website hoặc gọi
-                      điện đến số hotline 1900 xxxx.
-                    </p>
-                  </div>
+                    <div className="space-y-3">
+                      <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                        <h4 className="font-medium">
+                          Làm thế nào để đặt hàng?
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Bạn có thể đặt hàng trực tuyến thông qua website hoặc
+                          gọi điện đến số hotline 1900 xxxx.
+                        </p>
+                      </div>
 
-                  <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">
-                      Chính sách đổi trả như thế nào?
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Thanh Tâm Cosmetics chấp nhận đổi trả trong vòng 30 ngày
-                      kể từ ngày mua hàng.
-                    </p>
-                  </div>
+                      <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                        <h4 className="font-medium">
+                          Chính sách đổi trả như thế nào?
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Thanh Tâm Cosmetics chấp nhận đổi trả trong vòng 30
+                          ngày kể từ ngày mua hàng.
+                        </p>
+                      </div>
 
-                  <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">
-                      Phí vận chuyển là bao nhiêu?
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Miễn phí vận chuyển cho đơn hàng từ 500.000đ. Đơn hàng
-                      dưới 500.000đ, phí vận chuyển là 30.000đ.
-                    </p>
-                  </div>
+                      <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                        <h4 className="font-medium">
+                          Phí vận chuyển là bao nhiêu?
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Miễn phí vận chuyển cho đơn hàng từ 500.000đ. Đơn hàng
+                          dưới 500.000đ, phí vận chuyển là 30.000đ.
+                        </p>
+                      </div>
 
-                  <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">Thời gian giao hàng?</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Thời gian giao hàng từ 2-5 ngày làm việc tùy thuộc vào khu
-                      vực.
-                    </p>
-                  </div>
+                      <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                        <h4 className="font-medium">Thời gian giao hàng?</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Thời gian giao hàng từ 2-5 ngày làm việc tùy thuộc vào
+                          khu vực.
+                        </p>
+                      </div>
 
-                  <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
-                    <h4 className="font-medium">
-                      Làm thế nào để theo dõi đơn hàng?
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Bạn có thể theo dõi đơn hàng bằng cách đăng nhập vào tài
-                      khoản hoặc sử dụng mã đơn hàng được gửi qua email.
-                    </p>
+                      <div className="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                        <h4 className="font-medium">
+                          Làm thế nào để theo dõi đơn hàng?
+                        </h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Bạn có thể theo dõi đơn hàng bằng cách đăng nhập vào
+                          tài khoản hoặc sử dụng mã đơn hàng được gửi qua email.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <Button
-                  variant="outline"
-                  className="w-full mt-4 border-pink-600 text-pink-600 hover:bg-pink-50"
-                  onClick={() => resetChat()}
-                >
-                  Bắt đầu cuộc trò chuyện mới
-                </Button>
               </div>
-            </TabsContent>
+            </TabsContent> */}
           </Tabs>
         </Card>
       )}
