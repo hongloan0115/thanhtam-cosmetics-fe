@@ -126,7 +126,9 @@ export default function ChatbotButton() {
   // Khởi tạo WebSocket khi mở chat
   useEffect(() => {
     if (isOpen && !ws) {
-      const socket = new WebSocket("ws://localhost:8000/api/ws/chat");
+      const socket = new WebSocket(
+        `${process.env.NEXT_PUBLIC_API_WEBSOCKET}/api/ws/chat`
+      );
       setWs(socket);
 
       socket.onopen = () => setWsConnected(true);
@@ -530,7 +532,7 @@ export default function ChatbotButton() {
                                   </p>
                                 </div>
                                 <a
-                                  href={`http://localhost:3000${productParsed.link}`}
+                                  href={`${process.env.NEXT_PUBLIC_APP_URL}${productParsed.link}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
