@@ -375,22 +375,21 @@ export default function ProductPage({ params }: ProductPageProps) {
                 <ShoppingCart className="mr-2 h-5 w-5" />
                 {adding ? "Đang thêm..." : "Thêm vào giỏ hàng"}
               </Button>
-              <Button
+              {/* <Button
                 size="lg"
                 variant="outline"
                 className="border-pink-600 text-pink-600 hover:bg-pink-50"
               >
                 <Heart className="mr-2 h-5 w-5" />
                 Yêu thích
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>
       </div>
 
       {/* Product details sections (no tabs) */}
-      <div className="mb-12 space-y-12">
-        {/* Mô tả */}
+      {/* <div className="mb-12 space-y-12">
         <section>
           <h2 className="text-xl font-bold mb-4">Mô tả</h2>
           <div className="prose max-w-none">
@@ -415,7 +414,6 @@ export default function ProductPage({ params }: ProductPageProps) {
             </p>
           </div>
         </section>
-        {/* Thông số kỹ thuật */}
         <section>
           <h2 className="text-xl font-bold mb-4">Thông số kỹ thuật</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -427,7 +425,6 @@ export default function ProductPage({ params }: ProductPageProps) {
             ))}
           </div>
         </section>
-        {/* Đánh giá */}
         <section>
           <h2 className="text-xl font-bold mb-4">
             Đánh giá ({extraFields.reviewCount})
@@ -461,7 +458,6 @@ export default function ProductPage({ params }: ProductPageProps) {
                 Viết đánh giá
               </Button>
             </div>
-            {/* Sample reviews */}
             <div className="space-y-6">
               {[1, 2, 3].map((review) => (
                 <div key={review} className="border-b pb-6">
@@ -494,17 +490,17 @@ export default function ProductPage({ params }: ProductPageProps) {
             </Button>
           </div>
         </section>
-      </div>
+      </div> */}
 
       {/* Related products */}
-      <div>
+      {/* <div>
         <h2 className="text-2xl font-bold mb-6">Sản phẩm liên quan</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {relatedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

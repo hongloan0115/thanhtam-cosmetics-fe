@@ -1,26 +1,26 @@
-"use client"
+"use client";
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/components/auth-provider"
-import AccountLayout from "@/components/account-layout"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils"
-import { Heart, ShoppingCart, Trash2 } from "lucide-react"
-import Link from "next/link"
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth-provider";
+import AccountLayout from "@/components/account-layout";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/utils";
+import { Heart, ShoppingCart, Trash2 } from "lucide-react";
+import Link from "next/link";
 
 interface Product {
-  id: number
-  name: string
-  price: number
-  image: string
-  category: string
+  id: number;
+  name: string;
+  price: number;
+  image: string;
+  category: string;
 }
 
 export default function WishlistPage() {
-  const { user, isLoading, removeFromWishlist } = useAuth()
-  const router = useRouter()
+  const { user, isLoading, removeFromWishlist } = useAuth();
+  const router = useRouter();
 
   // Sample products data - in a real app, this would come from an API
   const allProducts: Product[] = [
@@ -80,35 +80,47 @@ export default function WishlistPage() {
       image: "/placeholder.svg?height=300&width=300",
       category: "Chăm sóc da",
     },
-  ]
+  ];
 
   useEffect(() => {
     // Bỏ kiểm tra đăng nhập
-  }, [])
+  }, []);
 
   if (isLoading) {
-    return <div className="container py-8">Đang tải...</div>
+    return <div className="container py-8">Đang tải...</div>;
   }
 
   // Filter products to only show those in the user's wishlist
-  const wishlistProducts = allProducts.filter((product) => user?.wishlist.includes(product.id))
+  const wishlistProducts = allProducts.filter((product) =>
+    user?.wishlist.includes(product.id)
+  );
 
   return (
     <AccountLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Sản phẩm yêu thích</h1>
-          <p className="text-muted-foreground">Quản lý danh sách sản phẩm yêu thích của bạn</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Sản phẩm yêu thích
+          </h1>
+          <p className="text-muted-foreground">
+            Quản lý danh sách sản phẩm yêu thích của bạn
+          </p>
         </div>
 
         {wishlistProducts.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-10">
               <Heart className="h-10 w-10 text-gray-400 mb-4" />
-              <p className="text-lg font-medium mb-2">Danh sách yêu thích trống</p>
-              <p className="text-gray-500 mb-4">Bạn chưa thêm sản phẩm nào vào danh sách yêu thích</p>
+              <p className="text-lg font-medium mb-2">
+                Danh sách yêu thích trống
+              </p>
+              <p className="text-gray-500 mb-4">
+                Bạn chưa thêm sản phẩm nào vào danh sách yêu thích
+              </p>
               <Link href="/products">
-                <Button className="bg-pink-600 hover:bg-pink-700">Khám phá sản phẩm</Button>
+                <Button className="bg-pink-600 hover:bg-pink-700">
+                  Khám phá sản phẩm
+                </Button>
               </Link>
             </CardContent>
           </Card>
@@ -139,7 +151,9 @@ export default function WishlistPage() {
                   </div>
 
                   <div className="p-4">
-                    <div className="text-sm text-gray-500 mb-1">{product.category}</div>
+                    <div className="text-sm text-gray-500 mb-1">
+                      {product.category}
+                    </div>
                     <Link href={`/products/${product.id}`}>
                       <h3 className="font-medium line-clamp-2 group-hover:text-pink-600 transition-colors">
                         {product.name}
@@ -147,8 +161,13 @@ export default function WishlistPage() {
                     </Link>
 
                     <div className="mt-4 flex items-center justify-between">
-                      <div className="font-semibold">{formatCurrency(product.price)}</div>
-                      <Button size="sm" className="bg-pink-600 hover:bg-pink-700">
+                      <div className="font-semibold">
+                        {formatCurrency(product.price)}
+                      </div>
+                      <Button
+                        size="sm"
+                        className="bg-pink-600 hover:bg-pink-700"
+                      >
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         Thêm vào giỏ
                       </Button>
@@ -161,5 +180,5 @@ export default function WishlistPage() {
         )}
       </div>
     </AccountLayout>
-  )
+  );
 }

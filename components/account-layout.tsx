@@ -29,11 +29,11 @@ export default function AccountLayout({ children }: AccountLayoutProps) {
       href: "/account/orders",
       icon: Package,
     },
-    {
-      title: "Sản phẩm yêu thích",
-      href: "/account/wishlist",
-      icon: Heart,
-    },
+    // {
+    //   title: "Sản phẩm yêu thích",
+    //   href: "/account/wishlist",
+    //   icon: Heart,
+    // },
   ];
 
   return (

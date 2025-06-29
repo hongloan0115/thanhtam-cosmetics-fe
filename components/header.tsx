@@ -41,7 +41,7 @@ export default function Header() {
   const navItems = [
     { name: "Trang chủ", path: "/" },
     { name: "Sản phẩm", path: "/products" },
-    { name: "Khuyến mãi", path: "/promotions" },
+    // { name: "Khuyến mãi", path: "/promotions" },
     { name: "Về chúng tôi", path: "/about" },
     { name: "Liên hệ", path: "/contact" },
   ];
@@ -112,19 +112,6 @@ export default function Header() {
             />
           </div>
 
-          {isAuthenticated && (
-            <Link href="/account/wishlist">
-              <Button variant="ghost" size="icon" className="relative">
-                <Heart className="h-5 w-5" />
-                {user && user?.wishlist?.length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-pink-600 text-[10px] text-white">
-                    {user?.wishlist?.length}
-                  </span>
-                )}
-              </Button>
-            </Link>
-          )}
-
           <Link href="/cart">
             <Button variant="ghost" size="icon" className="relative">
               <ShoppingCart className="h-5 w-5" />
@@ -192,7 +179,7 @@ export default function Header() {
                     Đơn hàng của tôi
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                {/* <DropdownMenuItem asChild>
                   <Link
                     href="/account/wishlist"
                     className="cursor-pointer flex items-center"
@@ -200,7 +187,7 @@ export default function Header() {
                     <Heart className="mr-2 h-4 w-4" />
                     Sản phẩm yêu thích
                   </Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 {user?.role === "Admin" && (
                   <DropdownMenuItem asChild>
                     <Link

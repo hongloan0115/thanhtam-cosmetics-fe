@@ -35,9 +35,13 @@ import {
   District,
   Ward,
 } from "@/services/api/address";
+import { useAuth } from "@/components/auth-provider";
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { user } = useAuth();
+
+  console.log("Current user:", user);
 
   // Lấy dữ liệu giỏ hàng từ localStorage nếu có, nếu không thì dùng mẫu
   const [cartItems, setCartItems] = useState<any[]>([]);
@@ -212,9 +216,6 @@ export default function CheckoutPage() {
 
     if (!validateForm()) return;
 
-    // Lấy maNguoiDung mẫu (hoặc lấy từ localStorage nếu có đăng nhập)
-    const maNguoiDung = 1; // TODO: lấy từ user context hoặc localStorage nếu có
-
     // Chuyển cartItems thành orderDetails đúng chuẩn API
     const orderDetails: OrderDetailCreate[] = cartItems.map((item) => ({
       maSanPham: item.id || item.sanPham?.maSanPham,
@@ -227,7 +228,7 @@ export default function CheckoutPage() {
 
     // Đảm bảo đúng trường cho OrderCreate
     const order: OrderCreate = {
-      maNguoiDung,
+      maNguoiDung: user?.maNguoiDung ?? 1,
       diaChiChiTiet: formData.address,
       tinhThanh: formData.city,
       quanHuyen: formData.district,
