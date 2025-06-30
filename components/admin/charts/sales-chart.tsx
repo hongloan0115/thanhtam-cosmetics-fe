@@ -43,7 +43,10 @@ export function SalesChart() {
         </CardTitle>
         <Select
           value={timeRange}
-          onValueChange={(value) => setTimeRange(value as any)}
+          // Khi chọn giá trị mới, cập nhật state và useEffect sẽ tự động gọi đúng API với tham số mới
+          onValueChange={(value) =>
+            setTimeRange(value as "daily" | "weekly" | "monthly")
+          }
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Chọn thời gian" />

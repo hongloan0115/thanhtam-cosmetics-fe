@@ -50,9 +50,9 @@ export const getRevenueByCategoryByMonth = (year?: number, month?: number) => {
 
 // Lấy dữ liệu cho biểu đồ doanh số bán hàng (daily, weekly, monthly)
 export const getSalesChart = (
-  range: "daily" | "weekly" | "monthly" = "daily"
+  time_range: "daily" | "weekly" | "monthly" = "daily"
 ) => {
   return axiosInstance.get("/statistics/sales-chart", {
-    params: { range },
+    params: { time_range },
   });
 };
