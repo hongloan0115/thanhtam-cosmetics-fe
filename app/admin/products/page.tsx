@@ -131,7 +131,7 @@ export default function AdminProducts() {
     });
 
     // Lấy sản phẩm
-    ProductService.getAll().then((data: Product[]) => {
+    ProductService.getAllAdmin().then((data: Product[]) => {
       const mapped = data.map((item) => ({
         ...item,
         images:
@@ -211,7 +211,7 @@ export default function AdminProducts() {
 
   // Hàm load lại danh sách sản phẩm (giúp đồng bộ danh mục)
   const reloadProducts = async () => {
-    const data = await ProductService.getAll();
+    const data = await ProductService.getAllAdmin();
     setProducts(
       data.map((item) => ({
         ...item,

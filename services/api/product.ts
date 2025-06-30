@@ -158,4 +158,10 @@ export const ProductService = {
     });
     return response.data;
   },
+
+  // Lấy danh sách sản phẩm cho admin (bao gồm cả hết hàng)
+  async getAllAdmin(): Promise<Product[]> {
+    const response = await axiosInstance.get("/products/admin");
+    return response.data;
+  },
 };
