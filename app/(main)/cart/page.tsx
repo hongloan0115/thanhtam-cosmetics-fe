@@ -62,7 +62,8 @@ export default function CartPage() {
     (total, item) => total + (item.sanPham?.giaBan || 0) * item.soLuong,
     0
   );
-  const shipping = subtotal > 500000 ? 0 : 30000;
+  // Luôn để phí vận chuyển mặc định là 30.000 đồng
+  const shipping = 30000;
   const total = subtotal + shipping;
 
   if (loading) {
@@ -224,9 +225,7 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Phí vận chuyển</span>
-                  <span>
-                    {shipping === 0 ? "Miễn phí" : formatCurrency(shipping)}
-                  </span>
+                  <span>{formatCurrency(shipping)}</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between font-medium">
                   <span>Tổng cộng</span>
